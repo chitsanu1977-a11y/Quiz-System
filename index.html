@@ -589,6 +589,13 @@ function saveEditorQ(){
 
 function deleteQ(i){ if(confirm('ลบคำถามข้อนี้?')){ S.questions.splice(i,1); saveQuestions(); renderQuestions(); } }
 
+// ==================== GAS HELPER (GET only — หลีกเลี่ยง CORS) ====================
+async function gasGet(url, params){
+  const qs = Object.entries(params).map(([k,v])=>k+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):v)).join('&');
+  const res = await fetch(url+'?'+qs);
+  return res.json();
+}
+
 // ==================== PUSH TO SHEETS ====================
 async function pushQuizToSheet(){
   const url = S.config.gasUrl;
@@ -596,10 +603,9 @@ async function pushQuizToSheet(){
   const el = document.getElementById('push-status');
   el.textContent = '⏳ กำลังบันทึก...';
   try {
-    const payload = { action:'saveQuiz', quiz:{ title:S.config.title, expiry:S.config.expiry, timer:S.config.timer, questions: S.questions.map(q=>({text:q.text,options:q.options,correct:q.correct,hasImg:!!q.imgData})) } };
-    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-    const data = await res.json();
-    el.textContent = data.ok ? '✅ บันทึกสำเร็จ!' : '❌ เกิดข้อผิดพลาด: '+data.error;
+    const quiz = { title:S.config.title, expiry:S.config.expiry, timer:S.config.timer, questions:S.questions.map(q=>({text:q.text,options:q.options,correct:q.correct,hasImg:!!q.imgData})) };
+    const d = await gasGet(url, { action:'saveQuiz', payload:quiz });
+    el.textContent = d.ok ? '✅ บันทึกสำเร็จ!' : '❌ เกิดข้อผิดพลาด: '+d.error;
   } catch(e){ el.textContent = '❌ ไม่สามารถเชื่อมต่อได้: '+e.message; }
 }
 
@@ -771,9 +777,8 @@ async function sendToSheet(rec){
   const url=S.config.gasUrl;
   if(!url){ document.getElementById('done-saving').style.display='none'; document.getElementById('done-saved').style.display='block'; document.getElementById('done-saved').textContent='(ยังไม่ได้ตั้งค่า Google Sheets)'; return; }
   try {
-    const payload={action:'saveResponse',data:{name:rec.name,correctCount:rec.correctCount,totalQ:rec.totalQ,answers:rec.answers.map(a=>a.correct?1:0),timestamp:new Date().toLocaleString('th-TH')}};
-    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const d=await res.json();
+    const payload={name:rec.name,correctCount:rec.correctCount,totalQ:rec.totalQ,answers:rec.answers.map(a=>a.correct?1:0),timestamp:new Date().toLocaleString('th-TH')};
+    const d = await gasGet(url, { action:'saveResponse', payload });
     document.getElementById('done-saving').style.display='none';
     document.getElementById('done-saved').style.display='block';
     document.getElementById('done-saved').textContent=d.ok?'✅ บันทึกลง Google Sheets แล้ว':'⚠️ บันทึกไม่สำเร็จ: '+d.error;
@@ -790,9 +795,8 @@ async function loadResults(){
   if(!url){ renderLeaderboard(S.players); return; }
   document.getElementById('lb-list').innerHTML='<div style="text-align:center;padding:16px"><div class="loading-dots"><span></span><span></span><span></span></div></div>';
   try {
-    const res=await fetch(url+'?action=getResults');
-    const d=await res.json();
-    if(d.ok){ S.players=d.players; localStorage.setItem('qz_players',JSON.stringify(S.players)); }
+    const d = await gasGet(url, { action:'getResults' });
+    if(d.ok && d.players){ S.players=d.players; localStorage.setItem('qz_players',JSON.stringify(S.players)); }
   } catch(e){}
   renderLeaderboard(S.players);
 }
