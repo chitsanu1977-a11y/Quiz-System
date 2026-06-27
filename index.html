@@ -3,905 +3,742 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quiz System — Rayong Isuzu</title>
-<meta name="theme-color" content="#1a56db">
-<style>
-  :root {
-    --blue: #1a56db;
-    --blue-dark: #1342b0;
-    --blue-light: #e8f0fe;
-    --green: #0f7b55;
-    --green-light: #d1fae5;
-    --red: #c0392b;
-    --red-light: #fee2e2;
-    --amber: #b45309;
-    --amber-light: #fef3c7;
-    --gray-50: #f9fafb;
-    --gray-100: #f3f4f6;
-    --gray-200: #e5e7eb;
-    --gray-400: #9ca3af;
-    --gray-600: #4b5563;
-    --gray-800: #1f2937;
-    --white: #ffffff;
-    --radius: 10px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-    --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Sarabun', 'Noto Sans Thai', sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; }
-  
-  /* ===== LAYOUT ===== */
-  .topbar { background: var(--blue); color: white; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow-md); }
-  .topbar-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-  .topbar-logo { width: 28px; height: 28px; background: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
-  .topbar-logo svg { width: 18px; height: 18px; }
-  
-  .tab-bar { display: flex; background: white; border-bottom: 1px solid var(--gray-200); overflow-x: auto; position: sticky; top: 52px; z-index: 99; }
-  .tab-btn { flex: 1; min-width: 80px; padding: 10px 4px 8px; font-size: 12px; font-weight: 500; color: var(--gray-400); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: .15s; white-space: nowrap; }
-  .tab-btn svg { width: 18px; height: 18px; }
-  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
-  
-  .page { display: none; padding: 16px; max-width: 640px; margin: 0 auto; }
-  .page.active { display: block; }
-  
-  /* ===== COMPONENTS ===== */
-  .card { background: white; border-radius: var(--radius); border: 1px solid var(--gray-200); padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
-  .card-title { font-size: 15px; font-weight: 600; color: var(--gray-800); margin-bottom: 12px; display: flex; align-items: center; gap-8px; }
-  
-  label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .03em; }
-  input[type=text], input[type=number], input[type=datetime-local], textarea, select {
-    width: 100%; padding: 9px 12px; border: 1px solid var(--gray-200); border-radius: 8px;
-    font-size: 14px; font-family: inherit; background: white; color: var(--gray-800);
-    margin-bottom: 12px; transition: border-color .15s; outline: none;
-  }
-  input:focus, textarea:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
-  textarea { resize: vertical; min-height: 72px; }
-  
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--gray-200); background: white; color: var(--gray-800); font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer; transition: .15s; text-decoration: none; }
-  .btn:hover { background: var(--gray-50); }
-  .btn:active { transform: scale(.98); }
-  .btn-primary { background: var(--blue); color: white; border-color: var(--blue); }
-  .btn-primary:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
-  .btn-success { background: var(--green); color: white; border-color: var(--green); }
-  .btn-danger { background: var(--red); color: white; border-color: var(--red); }
-  .btn-sm { padding: 5px 10px; font-size: 12px; }
-  .btn-block { width: 100%; justify-content: center; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .flex-1 { flex: 1; min-width: 0; }
-  
-  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
-  .badge-green { background: var(--green-light); color: var(--green); }
-  .badge-red { background: var(--red-light); color: var(--red); }
-  .badge-amber { background: var(--amber-light); color: var(--amber); }
-  .badge-blue { background: var(--blue-light); color: var(--blue-dark); }
-  
-  .divider { height: 1px; background: var(--gray-200); margin: 12px 0; }
-  
-  /* ===== ADMIN — Question list ===== */
-  .q-item { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
-  .q-item-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-  .q-item-text { font-size: 14px; font-weight: 500; flex: 1; }
-  .q-item-meta { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
-  
-  /* ===== ADMIN — Option editor ===== */
-  .opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-  .opt-wrap { position: relative; }
-  .opt-wrap input { margin: 0; padding-right: 36px; }
-  .opt-star { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 17px; cursor: pointer; line-height: 1; user-select: none; }
-  
-  /* ===== SHARE CARD ===== */
-  .share-canvas-wrap { max-width: 300px; margin: 0 auto 16px; }
-  #share-canvas-el { width: 100%; aspect-ratio: 1; border-radius: 10px; border: 2px dashed var(--gray-200); display: block; background: var(--gray-100); }
-  .share-link-box { background: var(--blue-light); border: 1px solid #93c5fd; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--blue-dark); word-break: break-all; line-height: 1.6; }
-  
-  /* ===== QUIZ PLAYER ===== */
-  .progress-track { height: 4px; background: var(--gray-200); border-radius: 2px; margin-bottom: 16px; overflow: hidden; }
-  .progress-bar { height: 100%; background: var(--blue); border-radius: 2px; transition: width .4s ease; }
-  
-  .timer-wrap { display: flex; flex-direction: column; align-items: center; margin: 8px 0 16px; }
-  .timer-ring-svg { width: 72px; height: 72px; transform: rotate(-90deg); }
-  .timer-bg { fill: none; stroke: var(--gray-200); stroke-width: 6; }
-  .timer-arc { fill: none; stroke: var(--blue); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .9s linear, stroke .3s; }
-  .timer-label { font-size: 22px; font-weight: 700; color: var(--gray-800); margin-top: -48px; margin-bottom: 40px; pointer-events: none; }
-  .timer-sub { font-size: 11px; color: var(--gray-400); }
-  
-  .q-image { width: 100%; border-radius: 8px; margin-bottom: 12px; max-height: 220px; object-fit: contain; background: var(--gray-100); }
-  .q-text { font-size: 16px; font-weight: 600; line-height: 1.6; margin-bottom: 16px; }
-  
-  .opt-btn { width: 100%; padding: 12px 16px; text-align: left; border: 1px solid var(--gray-200); border-radius: 10px; background: white; cursor: pointer; font-size: 14px; font-family: inherit; color: var(--gray-800); margin-bottom: 8px; transition: .15s; display: flex; align-items: center; gap: 10px; }
-  .opt-btn:hover:not(:disabled) { border-color: var(--blue); background: var(--blue-light); }
-  .opt-btn.selected { border-color: var(--blue); background: var(--blue-light); color: var(--blue-dark); }
-  .opt-btn.correct { border-color: var(--green); background: var(--green-light); color: var(--green); }
-  .opt-btn.wrong { border-color: var(--red); background: var(--red-light); color: var(--red); }
-  .opt-letter { width: 28px; height: 28px; border-radius: 50%; background: var(--gray-100); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
-  .opt-btn.correct .opt-letter { background: var(--green); color: white; }
-  .opt-btn.wrong .opt-letter { background: var(--red); color: white; }
-  .opt-btn.selected .opt-letter { background: var(--blue); color: white; }
-  
-  /* ===== RESULTS ===== */
-  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-  .stat-box { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px; text-align: center; }
-  .stat-num { font-size: 28px; font-weight: 700; color: var(--blue); }
-  .stat-lbl { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
-  .lb-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; background: var(--gray-50); border: 1px solid var(--gray-200); font-size: 13px; }
-  .lb-row.gold { background: #fffbeb; border-color: #fcd34d; }
-  .lb-rank { width: 24px; font-weight: 700; color: var(--gray-400); }
-  .lb-name { flex: 1; font-weight: 500; }
-  .lb-detail { font-size: 11px; color: var(--gray-400); }
-  .lb-score { text-align: right; }
-  
-  /* ===== GIFT BOX ===== */
-  .gift-outer { border-radius: 16px; overflow: hidden; border: 2px solid #d97706; }
-  .gift-lid { background: linear-gradient(135deg, #f59e0b, #d97706); padding: 10px 16px; text-align: center; color: white; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; }
-  .gift-body { background: linear-gradient(160deg, #fef3c7 0%, #fde68a 100%); min-height: 160px; padding: 16px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; justify-content: center; }
-  .name-chip { background: white; border: 1px solid #fcd34d; border-radius: 99px; padding: 5px 14px; font-size: 13px; font-weight: 500; color: #78350f; transition: .15s; }
-  .name-chip.spin { animation: chipSpin .35s ease-in-out infinite alternate; }
-  @keyframes chipSpin { from { transform: translateY(-3px) rotate(-1.5deg) scale(1.04); } to { transform: translateY(3px) rotate(1.5deg) scale(.97); } }
-  
-  .winner-card { margin-top: 12px; background: white; border: 2px solid var(--green); border-radius: 14px; padding: 20px; text-align: center; }
-  .winner-crown { font-size: 36px; margin-bottom: 4px; }
-  .winner-label { font-size: 12px; color: var(--gray-400); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
-  .winner-names { margin: 8px 0; }
-  .winner-name { font-size: 20px; font-weight: 700; color: var(--green); padding: 4px 0; }
-  .winner-contact { margin-top: 10px; font-size: 15px; font-weight: 700; color: var(--red); }
-  
-  /* ===== MISC ===== */
-  .upload-zone { border: 2px dashed var(--gray-200); border-radius: 10px; padding: 20px; text-align: center; color: var(--gray-400); font-size: 13px; cursor: pointer; transition: .15s; }
-  .upload-zone:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
-  .empty-state { text-align: center; padding: 32px 16px; color: var(--gray-400); font-size: 14px; }
-  .pin-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 200; }
-  .pin-box { background: white; border-radius: 16px; padding: 28px 24px; width: 300px; text-align: center; }
-  .pin-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
-  .pin-sub { font-size: 13px; color: var(--gray-400); margin-bottom: 16px; }
-  .expired-banner { background: var(--red-light); border: 1px solid #fca5a5; border-radius: 10px; padding: 16px; text-align: center; color: var(--red); font-weight: 600; margin-bottom: 12px; }
-  .loading-dots { display: inline-flex; gap: 4px; }
-  .loading-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); animation: dot .8s ease-in-out infinite; }
-  .loading-dots span:nth-child(2) { animation-delay: .15s; }
-  .loading-dots span:nth-child(3) { animation-delay: .3s; }
-  @keyframes dot { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
-  
-  .done-icon { font-size: 52px; text-align: center; margin: 8px 0; }
-  .done-title { font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 6px; }
-  .done-sub { font-size: 14px; color: var(--gray-400); text-align: center; margin-bottom: 16px; }
-  .answer-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(48px,1fr)); gap: 6px; margin-top: 10px; }
-  .answer-cell { border-radius: 8px; padding: 6px 4px; text-align: center; font-size: 11px; font-weight: 600; }
-  .answer-cell.ok { background: var(--green-light); color: var(--green); }
-  .answer-cell.no { background: var(--red-light); color: var(--red); }
-
-  @media (max-width: 480px) { .opt-grid { grid-template-columns: 1fr; } .stat-grid { grid-template-columns: 1fr 1fr; } }
-</style>
+<title>Quiz Time! 🎯</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Prompt',sans-serif;min-height:100vh;background:#fff9f0}
+
+/* ===== PLAYER MODE ===== */
+.player-wrap{min-height:100vh;background:linear-gradient(160deg,#fff4e6 0%,#fce4ff 100%)}
+
+.player-header{background:linear-gradient(135deg,#ff6b9d,#c44dff);padding:16px;text-align:center;border-radius:0 0 24px 24px;box-shadow:0 4px 20px rgba(196,77,255,.3)}
+.player-header h1{color:white;font-size:22px;font-weight:800;text-shadow:0 2px 8px rgba(0,0,0,.2)}
+.player-header p{color:rgba(255,255,255,.85);font-size:13px;margin-top:2px}
+
+.player-body{padding:16px;max-width:540px;margin:0 auto}
+
+/* name screen */
+.name-card{background:white;border-radius:24px;padding:28px 20px;text-align:center;box-shadow:0 8px 32px rgba(255,107,157,.15);margin-top:20px;border:2px solid #ffd6eb}
+.name-card .emoji{font-size:56px;margin-bottom:8px}
+.name-card h2{font-size:20px;font-weight:800;color:#c44dff;margin-bottom:6px}
+.name-card p{font-size:13px;color:#999;margin-bottom:20px}
+.name-card input{width:100%;padding:12px 16px;border:2px solid #ffd6eb;border-radius:14px;font-size:15px;font-family:'Prompt',sans-serif;outline:none;text-align:center;color:#444;transition:.2s}
+.name-card input:focus{border-color:#c44dff;box-shadow:0 0 0 3px rgba(196,77,255,.15)}
+.btn-start{display:block;width:100%;margin-top:12px;padding:14px;background:linear-gradient(135deg,#ff6b9d,#c44dff);color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:'Prompt',sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(196,77,255,.4);transition:.15s}
+.btn-start:active{transform:scale(.97)}
+
+/* quiz screen */
+.quiz-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.q-counter{font-size:13px;font-weight:600;color:#c44dff}
+.p-name-tag{font-size:12px;font-weight:600;color:#ff6b9d;background:#fff0f7;padding:4px 10px;border-radius:99px}
+
+.prog-track{height:8px;background:#ffe4f5;border-radius:99px;margin-bottom:16px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#ff6b9d,#c44dff);border-radius:99px;transition:width .4s ease}
+
+.timer-wrap{display:flex;justify-content:center;margin-bottom:14px}
+.timer-circle{width:64px;height:64px;border-radius:50%;background:white;border:4px solid #ffd6eb;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(255,107,157,.2);position:relative}
+.timer-num{font-size:22px;font-weight:800;color:#c44dff}
+.timer-circle.urgent{border-color:#ff4757;animation:pulse .6s ease-in-out infinite alternate}
+.timer-circle.urgent .timer-num{color:#ff4757}
+@keyframes pulse{from{transform:scale(1)}to{transform:scale(1.08)}}
+
+.q-card{background:white;border-radius:20px;padding:18px;box-shadow:0 6px 24px rgba(255,107,157,.12);border:2px solid #ffd6eb;margin-bottom:12px}
+.q-img{width:100%;border-radius:12px;margin-bottom:12px;max-height:200px;object-fit:contain}
+.q-text{font-size:16px;font-weight:700;color:#333;line-height:1.6}
+
+.opt-btn{width:100%;padding:13px 16px;margin-bottom:8px;border:2px solid #ffe4f5;border-radius:14px;background:white;cursor:pointer;font-size:14px;font-weight:600;font-family:'Prompt',sans-serif;color:#555;display:flex;align-items:center;gap:10px;transition:.15s;text-align:left}
+.opt-btn:hover:not(:disabled){border-color:#c44dff;background:#fdf0ff;color:#c44dff}
+.opt-btn.selected{border-color:#c44dff;background:#fdf0ff;color:#c44dff}
+.opt-btn.correct{border-color:#00c853;background:#f0fff4;color:#00a846}
+.opt-btn.wrong{border-color:#ff4757;background:#fff0f1;color:#ff4757}
+.opt-letter{width:30px;height:30px;border-radius:50%;background:#ffe4f5;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;color:#c44dff}
+.opt-btn.correct .opt-letter{background:#00c853;color:white}
+.opt-btn.wrong .opt-letter{background:#ff4757;color:white}
+.opt-btn.selected .opt-letter{background:#c44dff;color:white}
+
+/* done screen */
+.done-card{background:white;border-radius:24px;padding:28px 20px;text-align:center;box-shadow:0 8px 32px rgba(255,107,157,.15);margin-top:20px;border:2px solid #ffd6eb}
+.done-emoji{font-size:64px;margin-bottom:8px}
+.done-title{font-size:22px;font-weight:800;color:#c44dff;margin-bottom:4px}
+.done-sub{font-size:14px;color:#999;margin-bottom:16px}
+.done-saving{color:#aaa;font-size:12px;padding:8px}
+.answer-chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px}
+.chip{padding:5px 12px;border-radius:99px;font-size:12px;font-weight:700}
+.chip.ok{background:#f0fff4;color:#00a846;border:1px solid #b2f0c8}
+.chip.no{background:#fff0f1;color:#ff4757;border:1px solid #ffc0c5}
+
+/* expired */
+.expired-card{background:white;border-radius:20px;padding:28px 20px;text-align:center;margin-top:20px;border:2px solid #ffc0c5}
+.expired-card .emoji{font-size:48px}
+.expired-card h2{font-size:18px;font-weight:800;color:#ff4757;margin:8px 0 4px}
+.expired-card p{font-size:13px;color:#aaa}
+
+/* loading */
+.loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;gap:12px}
+.loading-dots{display:flex;gap:6px}
+.loading-dots span{width:10px;height:10px;border-radius:50%;background:#c44dff;animation:dot .8s ease-in-out infinite}
+.loading-dots span:nth-child(2){animation-delay:.15s;background:#ff6b9d}
+.loading-dots span:nth-child(3){animation-delay:.3s;background:#ffab40}
+@keyframes dot{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
+.loading-text{font-size:14px;color:#bbb;font-weight:500}
+
+/* ===== ADMIN MODE ===== */
+.admin-wrap{min-height:100vh;background:#f8f9fa}
+.admin-topbar{background:#1a56db;color:white;padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.admin-topbar h1{font-size:16px;font-weight:700}
+.tab-bar{display:flex;background:white;border-bottom:1px solid #e9ecef;overflow-x:auto;position:sticky;top:52px;z-index:99}
+.tab-btn{flex:1;min-width:72px;padding:10px 4px 8px;font-size:11px;font-weight:600;color:#aaa;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:'Prompt',sans-serif;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tab-btn.active{color:#1a56db;border-bottom-color:#1a56db}
+.tab-icon{font-size:16px}
+.a-page{display:none;padding:14px;max-width:640px;margin:0 auto}
+.a-page.active{display:block}
+.a-card{background:white;border-radius:12px;border:1px solid #e9ecef;padding:14px;margin-bottom:12px}
+.a-card-title{font-size:14px;font-weight:700;color:#333;margin-bottom:12px}
+label{display:block;font-size:11px;font-weight:700;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+input[type=text],input[type=number],input[type=datetime-local],input[type=password],textarea,select{width:100%;padding:9px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;font-family:'Prompt',sans-serif;color:#333;outline:none;margin-bottom:10px;background:white;transition:.15s}
+input:focus,textarea:focus{border-color:#1a56db;box-shadow:0 0 0 3px rgba(26,86,219,.12)}
+textarea{resize:vertical;min-height:68px}
+.a-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid #dee2e6;background:white;color:#444;font-size:13px;font-weight:600;font-family:'Prompt',sans-serif;cursor:pointer;transition:.15s}
+.a-btn:hover{background:#f8f9fa}
+.a-btn-primary{background:#1a56db;color:white;border-color:#1a56db}
+.a-btn-primary:hover{background:#1342b0}
+.a-btn-success{background:#00c853;color:white;border-color:#00c853}
+.a-btn-danger{background:#ff4757;color:white;border-color:#ff4757}
+.a-btn-sm{padding:5px 10px;font-size:12px}
+.a-btn-block{width:100%;justify-content:center}
+.a-row{display:flex;gap:8px;flex-wrap:wrap}
+.a-flex{flex:1;min-width:0}
+.q-item{background:#f8f9fa;border:1px solid #e9ecef;border-radius:10px;padding:12px;margin-bottom:8px}
+.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.opt-wrap{position:relative}
+.opt-wrap input{margin:0;padding-right:34px}
+.opt-star{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:16px;cursor:pointer;user-select:none}
+.upload-zone{border:2px dashed #dee2e6;border-radius:10px;padding:16px;text-align:center;color:#aaa;font-size:13px;cursor:pointer;margin-bottom:10px;transition:.15s}
+.upload-zone:hover{border-color:#1a56db;color:#1a56db;background:#f0f4ff}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stat-box{background:#f8f9fa;border-radius:8px;padding:12px;text-align:center}
+.stat-num{font-size:26px;font-weight:800;color:#1a56db}
+.stat-lbl{font-size:11px;color:#aaa}
+.lb-row{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:#f8f9fa;border:1px solid #e9ecef;font-size:13px}
+.lb-row.gold{background:#fffbeb;border-color:#fcd34d}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700}
+.badge-green{background:#d1fae5;color:#00a846}
+.badge-amber{background:#fef3c7;color:#b45309}
+/* share card */
+.share-card-dom{width:300px;height:300px;border-radius:12px;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.share-card-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+/* gift */
+.gift-outer{border-radius:16px;overflow:hidden;border:2px solid #d97706}
+.gift-lid{background:linear-gradient(135deg,#f59e0b,#d97706);padding:10px 16px;text-align:center;color:white;font-weight:700;font-size:14px}
+.gift-body{background:linear-gradient(160deg,#fef3c7,#fde68a);min-height:140px;padding:14px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;justify-content:center}
+.name-chip{background:white;border:1px solid #fcd34d;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:600;color:#78350f}
+.name-chip.spin{animation:chipSpin .35s ease-in-out infinite alternate}
+@keyframes chipSpin{from{transform:translateY(-4px) rotate(-2deg) scale(1.05)}to{transform:translateY(4px) rotate(2deg) scale(.95)}}
+.winner-card{margin-top:12px;background:white;border:2px solid #00c853;border-radius:14px;padding:20px;text-align:center}
+.winner-name{font-size:20px;font-weight:800;color:#00a846;padding:3px 0}
+.winner-contact{margin-top:10px;font-size:16px;font-weight:800;color:#ff4757}
+.empty-state{text-align:center;padding:28px;color:#ccc;font-size:13px}
+.editor-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;overflow-y:auto;padding:16px}
+.editor-box{background:white;border-radius:16px;padding:20px;max-width:540px;margin:0 auto}
+.share-link-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:12px;color:#1e40af;word-break:break-all;line-height:1.6;margin-bottom:10px}
+.dots{display:inline-flex;gap:4px}
+.dots span{width:6px;height:6px;border-radius:50%;background:#1a56db;animation:dot .8s ease-in-out infinite}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+@media(max-width:480px){.opt-grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
 
 <script>
-// ตรวจจับ LINE in-app browser แล้ว redirect ออกไป Chrome/Safari
+// ===== ตรวจจับ LINE browser → เปิด external browser =====
 (function(){
-  const ua = navigator.userAgent || '';
-  const isLINE = ua.indexOf('Line/') > -1 || ua.indexOf('FBAN') > -1;
+  var ua = navigator.userAgent||'';
+  var isLINE = ua.indexOf('Line/')>-1;
   if(isLINE){
-    const url = location.href;
-    // Android → เปิดด้วย intent
+    var url = location.href;
     if(/android/i.test(ua)){
-      location.href = 'intent://' + url.replace(/https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+      location.href='intent://'+url.replace(/https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end';
     } else {
-      // iOS → เพิ่ม ?openExternalBrowser=1 (LINE รองรับ)
-      if(url.indexOf('openExternalBrowser') === -1){
-        location.href = url + (url.indexOf('?') > -1 ? '&' : '?') + 'openExternalBrowser=1';
+      if(url.indexOf('openExternalBrowser')===-1){
+        location.href=url+(url.indexOf('?')>-1?'&':'?')+'openExternalBrowser=1';
       }
     }
   }
 })();
+
+// ===== ตรวจว่าเป็นหน้าผู้เล่นหรือแอดมิน =====
+var IS_PLAYER = location.search.indexOf('play=1') > -1;
 </script>
 
-<!-- ==================== TOP BAR ==================== -->
-<div class="topbar">
-  <div class="topbar-title">
-    <div class="topbar-logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+<!-- ========== PLAYER MODE ========== -->
+<div id="player-app" style="display:none">
+  <div class="player-wrap">
+    <div class="player-header">
+      <h1 id="p-quiz-title">🎯 Quiz Time!</h1>
+      <p id="p-quiz-info">โหลดข้อมูล...</p>
     </div>
-    Quiz System
-  </div>
-  <div id="topbar-right" style="font-size:12px;opacity:.8"></div>
-</div>
+    <div class="player-body">
 
-<!-- ==================== TAB BAR ==================== -->
-<div class="tab-bar" id="tab-bar">
-  <button class="tab-btn active" onclick="showTab('admin',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-    แอดมิน
-  </button>
-  <button class="tab-btn" onclick="showTab('share',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>
-    แชร์
-  </button>
-  <button class="tab-btn" onclick="showTab('play',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-    เล่น
-  </button>
-  <button class="tab-btn" onclick="showTab('results',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-    ผล
-  </button>
-  <button class="tab-btn" onclick="showTab('gift',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
-    ของขวัญ
-  </button>
-</div>
+      <!-- Loading -->
+      <div id="p-loading" class="loading-screen">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+        <div class="loading-text">กำลังโหลดแบบทดสอบ...</div>
+      </div>
 
-<!-- ==================== ADMIN TAB ==================== -->
-<div id="tab-admin" class="page active">
-
-  <!-- PIN gate -->
-  <div id="admin-locked" style="display:none">
-    <div class="card" style="text-align:center;padding:28px">
-      <div style="font-size:40px;margin-bottom:8px">🔒</div>
-      <div style="font-size:17px;font-weight:700;margin-bottom:6px">หน้าแอดมิน</div>
-      <div style="font-size:13px;color:var(--gray-400);margin-bottom:16px">ใส่ PIN เพื่อเข้าใช้งาน</div>
-      <input type="password" id="pin-input" placeholder="PIN 4 หลัก" maxlength="4" style="text-align:center;letter-spacing:.3em;font-size:20px;margin-bottom:8px">
-      <button class="btn btn-primary btn-block" onclick="checkPin()">เข้าสู่ระบบ</button>
-    </div>
-  </div>
-
-  <div id="admin-content">
-    <!-- Settings -->
-    <div class="card">
-      <div class="card-title">⚙️ ตั้งค่าควิซ</div>
-      <label>ชื่อควิซ</label>
-      <input type="text" id="cfg-title" placeholder="เช่น ทดสอบความรู้ Isuzu D-Max" oninput="saveConfig()">
-      <div class="row">
-        <div class="flex-1">
-          <label>ลิงค์หมดอายุ</label>
-          <input type="datetime-local" id="cfg-expiry" onchange="saveConfig();updateShareLink()">
-        </div>
-        <div class="flex-1">
-          <label>เวลาต่อข้อ (วิ)</label>
-          <input type="number" id="cfg-timer" value="30" min="5" max="300" oninput="saveConfig()">
+      <!-- Expired -->
+      <div id="p-expired" style="display:none">
+        <div class="expired-card">
+          <div class="emoji">⏰</div>
+          <h2>หมดเวลาแล้ว!</h2>
+          <p>แบบทดสอบนี้หมดอายุแล้ว<br>ติดต่อ Training เพื่อสอบถามข้อมูล</p>
         </div>
       </div>
-      <label>PIN แอดมิน (4 หลัก)</label>
-      <input type="password" id="cfg-pin" placeholder="0000" maxlength="4" oninput="saveConfig()">
-      <label>Google Apps Script URL</label>
-      <input type="text" id="cfg-gas-url" placeholder="https://script.google.com/macros/s/XXXXX/exec" oninput="saveConfig()">
-      <div style="font-size:11px;color:var(--gray-400);margin-top:-8px;margin-bottom:12px">วาง URL จาก Google Apps Script ที่ Deploy แล้ว</div>
-    </div>
 
-    <!-- Question list -->
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin:0">📝 คำถาม (<span id="q-count">0</span>)</div>
-        <button class="btn btn-primary btn-sm" onclick="openEditor(null)">+ เพิ่ม</button>
+      <!-- Name screen -->
+      <div id="p-name" style="display:none">
+        <div class="name-card">
+          <div class="emoji">✏️</div>
+          <h2>ใส่ชื่อก่อนเริ่มนะ!</h2>
+          <p id="p-name-info">มี 0 ข้อ · 30 วินาทีต่อข้อ</p>
+          <input type="text" id="p-name-input" placeholder="ชื่อ-นามสกุล" maxlength="50">
+          <button class="btn-start" onclick="startPlay()">🚀 เริ่มเลย!</button>
+        </div>
       </div>
-      <div id="q-list"><div class="empty-state">ยังไม่มีคำถาม</div></div>
-    </div>
 
-    <button class="btn btn-success btn-block" onclick="pushQuizToSheet()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-      บันทึกควิซลง Google Sheets
-    </button>
-    <div id="push-status" style="text-align:center;font-size:13px;color:var(--gray-400);margin-top:8px;min-height:20px"></div>
+      <!-- Quiz -->
+      <div id="p-quiz" style="display:none">
+        <div class="quiz-top">
+          <div class="q-counter" id="p-qnum">ข้อ 1/1</div>
+          <div class="p-name-tag" id="p-nametag"></div>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="p-prog" style="width:0%"></div></div>
+        <div class="timer-wrap">
+          <div class="timer-circle" id="p-timer-circle">
+            <div class="timer-num" id="p-timer-num">30</div>
+          </div>
+        </div>
+        <div class="q-card">
+          <img id="p-q-img" class="q-img" src="" alt="" style="display:none">
+          <div class="q-text" id="p-q-text"></div>
+        </div>
+        <div id="p-opts"></div>
+      </div>
+
+      <!-- Done -->
+      <div id="p-done" style="display:none">
+        <div class="done-card">
+          <div class="done-emoji" id="p-done-emoji">🎉</div>
+          <div class="done-title" id="p-done-title">ส่งคำตอบแล้ว!</div>
+          <div class="done-sub" id="p-done-sub"></div>
+          <div id="p-saving" class="done-saving">
+            <div class="loading-dots" style="justify-content:center"><span></span><span></span><span></span></div>
+            <div style="margin-top:4px">กำลังบันทึก...</div>
+          </div>
+          <div id="p-saved" style="display:none;font-size:12px;color:#aaa;text-align:center"></div>
+          <div class="answer-chips" id="p-chips"></div>
+        </div>
+      </div>
+
+    </div>
   </div>
 </div>
 
-<!-- ==================== QUESTION EDITOR (modal) ==================== -->
-<div id="editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;overflow-y:auto;padding:16px">
-  <div style="background:white;border-radius:16px;padding:20px;max-width:560px;margin:0 auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:700" id="editor-title">เพิ่มคำถาม</div>
-      <button class="btn btn-sm" onclick="closeEditor()">✕</button>
+<!-- ========== ADMIN MODE ========== -->
+<div id="admin-app" style="display:none">
+  <div class="admin-wrap">
+    <div class="admin-topbar">
+      <h1>🎯 Quiz Admin</h1>
+      <div id="a-topbar-right" style="font-size:11px;opacity:.75"></div>
+    </div>
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="aTab('cfg',this)"><span class="tab-icon">⚙️</span>ตั้งค่า</button>
+      <button class="tab-btn" onclick="aTab('questions',this)"><span class="tab-icon">📝</span>คำถาม</button>
+      <button class="tab-btn" onclick="aTab('share',this)"><span class="tab-icon">🖼️</span>แชร์</button>
+      <button class="tab-btn" onclick="aTab('results',this)"><span class="tab-icon">📊</span>ผล</button>
+      <button class="tab-btn" onclick="aTab('gift',this)"><span class="tab-icon">🎁</span>ของขวัญ</button>
+    </div>
+
+    <!-- CONFIG -->
+    <div id="a-cfg" class="a-page active">
+      <div class="a-card">
+        <div class="a-card-title">⚙️ ตั้งค่าควิซ</div>
+        <label>ชื่อควิซ</label>
+        <input type="text" id="cfg-title" placeholder="เช่น ทดสอบความรู้ Isuzu" oninput="saveConfig()">
+        <div class="a-row">
+          <div class="a-flex"><label>หมดอายุ</label><input type="datetime-local" id="cfg-expiry" onchange="saveConfig()"></div>
+          <div class="a-flex"><label>วินาทีต่อข้อ</label><input type="number" id="cfg-timer" value="30" min="5" max="300" oninput="saveConfig()"></div>
+        </div>
+        <label>PIN แอดมิน</label>
+        <input type="password" id="cfg-pin" placeholder="4 หลัก" maxlength="4" oninput="saveConfig()">
+        <label>Cloudflare Worker URL</label>
+        <input type="text" id="cfg-gas-url" placeholder="https://xxxx.workers.dev" oninput="saveConfig()">
+      </div>
+      <button class="a-btn a-btn-success a-btn-block" onclick="pushToSheet()">💾 บันทึกลง Google Sheets</button>
+      <div id="push-status" style="text-align:center;font-size:13px;color:#aaa;margin-top:8px;min-height:20px"></div>
+    </div>
+
+    <!-- QUESTIONS -->
+    <div id="a-questions" class="a-page">
+      <div class="a-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="a-card-title" style="margin:0">📝 คำถาม (<span id="q-count">0</span>)</div>
+          <button class="a-btn a-btn-primary a-btn-sm" onclick="openEditor(null)">+ เพิ่ม</button>
+        </div>
+        <div id="q-list"><div class="empty-state">ยังไม่มีคำถาม</div></div>
+      </div>
+    </div>
+
+    <!-- SHARE -->
+    <div id="a-share" class="a-page">
+      <div class="a-card">
+        <div class="a-card-title">🖼️ การ์ดแชร์ 1040×1040</div>
+        <div style="max-width:300px;margin:0 auto 16px">
+          <div class="share-card-dom" id="share-card-dom" style="background:#ff6b9d" onclick="document.getElementById('share-bg-file').click()">
+            <img id="share-bg-img" class="share-card-bg" src="" style="display:none">
+            <div id="share-placeholder" style="color:white;text-align:center;z-index:1;padding:20px">
+              <div style="font-size:40px">🖼️</div>
+              <div style="font-size:13px;margin-top:6px;opacity:.9">คลิกเพื่อเปลี่ยนภาพ</div>
+            </div>
+            <input type="file" id="share-bg-file" accept="image/*" style="display:none" onchange="loadShareBg(event)">
+          </div>
+        </div>
+        <div class="share-link-box" id="share-link-box">🔗 <span id="share-link-text">-</span></div>
+        <div class="a-row">
+          <button class="a-btn a-btn-primary a-flex" onclick="downloadCard()">⬇️ ดาวน์โหลดการ์ด</button>
+          <button class="a-btn a-flex" onclick="copyLink()">📋 คัดลอกลิงค์</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="a-results" class="a-page">
+      <div class="a-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="a-card-title" style="margin:0">📊 ผลลัพธ์</div>
+          <button class="a-btn a-btn-sm" onclick="loadResults()">🔄 รีเฟรช</button>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num" id="r-total">-</div><div class="stat-lbl">ผู้เข้าร่วม</div></div>
+          <div class="stat-box"><div class="stat-num" id="r-perfect">-</div><div class="stat-lbl">ตอบถูกทั้งหมด</div></div>
+        </div>
+        <div id="lb-list"><div class="empty-state">กดรีเฟรชเพื่อโหลด</div></div>
+      </div>
+    </div>
+
+    <!-- GIFT -->
+    <div id="a-gift" class="a-page">
+      <div class="a-card">
+        <div class="a-card-title">🎁 กล่องของขวัญ</div>
+        <div class="a-row" style="margin-bottom:12px;align-items:flex-end">
+          <div class="a-flex"><label>จำนวนผู้โชคดี</label><input type="number" id="gift-count" value="1" min="1" style="margin:0"></div>
+          <button class="a-btn a-btn-primary" onclick="drawWinners()">🎲 สุ่ม!</button>
+        </div>
+        <div class="gift-outer">
+          <div class="gift-lid">🎁 ผู้ตอบถูกทั้งหมด</div>
+          <div class="gift-body" id="gift-body"><div style="width:100%;text-align:center;color:#92400e;font-size:13px">โหลดผลก่อนนะครับ</div></div>
+        </div>
+        <div id="winner-area" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDITOR OVERLAY -->
+<div class="editor-overlay" id="editor-overlay">
+  <div class="editor-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700" id="editor-title">เพิ่มคำถาม</div>
+      <button class="a-btn a-btn-sm" onclick="closeEditor()">✕</button>
     </div>
     <label>ข้อความคำถาม</label>
     <textarea id="ed-text" placeholder="พิมพ์คำถาม..."></textarea>
     <div class="upload-zone" onclick="document.getElementById('ed-img-file').click()">
-      📷 อัปโหลดรูปประกอบคำถาม (ถ้ามี)
-      <input type="file" id="ed-img-file" accept="image/*" style="display:none" onchange="loadEditorImg(event)">
+      📷 อัปโหลดรูปประกอบ (ถ้ามี)
+      <input type="file" id="ed-img-file" accept="image/*" style="display:none" onchange="loadEdImg(event)">
     </div>
-    <div id="ed-img-wrap" style="display:none;margin:8px 0">
-      <img id="ed-img-prev" style="width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid var(--gray-200)">
-      <button class="btn btn-sm btn-danger" style="margin-top:6px" onclick="clearEditorImg()">ลบรูป</button>
+    <div id="ed-img-wrap" style="display:none;margin-bottom:10px">
+      <img id="ed-img-prev" style="width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid #e9ecef">
+      <button class="a-btn a-btn-danger a-btn-sm" style="margin-top:6px" onclick="clearEdImg()">ลบรูป</button>
     </div>
-    <label style="margin-top:8px">ตัวเลือก <span style="font-weight:400;text-transform:none;letter-spacing:0">(กด ⭐ เพื่อตั้งคำตอบที่ถูก)</span></label>
+    <label>ตัวเลือก (กด ⭐ = คำตอบที่ถูก)</label>
     <div class="opt-grid" id="opt-grid"></div>
-    <button class="btn btn-sm" onclick="addOpt()" style="margin-bottom:12px">+ ตัวเลือก</button>
-    <div class="row">
-      <button class="btn btn-success flex-1" onclick="saveEditorQ()">บันทึก</button>
-      <button class="btn flex-1" onclick="closeEditor()">ยกเลิก</button>
+    <button class="a-btn a-btn-sm" onclick="addOpt()" style="margin-bottom:12px">+ ตัวเลือก</button>
+    <div class="a-row">
+      <button class="a-btn a-btn-success a-flex" onclick="saveEditorQ()">✅ บันทึก</button>
+      <button class="a-btn a-flex" onclick="closeEditor()">ยกเลิก</button>
     </div>
-  </div>
-</div>
-
-<!-- ==================== SHARE TAB ==================== -->
-<div id="tab-share" class="page">
-  <div class="card">
-    <div class="card-title">🖼️ การ์ดแชร์ 1040×1040</div>
-    <div class="share-canvas-wrap">
-      <div id="share-card-dom" style="width:300px;height:300px;border-radius:10px;overflow:hidden;position:relative;background:#1a56db;display:flex;flex-direction:column;align-items:center;justify-content:center">
-        <img id="share-bg-img" src="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none">
-        <div style="position:relative;z-index:1;text-align:center;padding:20px">
-          <div id="share-card-title" style="color:white;font-size:22px;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.5);margin-bottom:8px">ทดสอบความรู้</div>
-          <div id="share-card-sub" style="color:rgba(255,255,255,.85);font-size:14px">กดเพื่อทำแบบทดสอบ!</div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="upload-zone" onclick="document.getElementById('share-bg-file').click()" style="margin-bottom:12px">
-      🖼️ เปลี่ยนภาพพื้นหลัง (แนะนำ 1040×1040px)
-      <input type="file" id="share-bg-file" accept="image/*" style="display:none" onchange="loadShareBg(event)">
-    </div>
-    <label>ข้อความบนการ์ด</label>
-    <input type="text" id="share-sub-text" value="กดเพื่อทำแบบทดสอบ!" oninput="updateShareCard()">
-    
-    <div class="share-link-box" id="share-link-box" style="margin-bottom:12px">
-      🔗 <span id="share-link-text">กรุณาตั้งค่า URL ใน GitHub Pages ก่อน</span>
-    </div>
-    
-    <div class="row">
-      <button class="btn btn-primary flex-1" onclick="downloadShareCard()">⬇️ ดาวน์โหลดการ์ด</button>
-      <button class="btn flex-1" onclick="copyShareLink()">📋 คัดลอกลิงค์</button>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== PLAY TAB ==================== -->
-<div id="tab-play" class="page">
-
-  <!-- Name screen -->
-  <div id="play-name">
-    <div id="expiry-warn"></div>
-    <div class="card" style="text-align:center;padding:28px">
-      <div style="font-size:42px;margin-bottom:8px">📝</div>
-      <div style="font-size:19px;font-weight:700;margin-bottom:6px" id="play-quiz-title">แบบทดสอบ</div>
-      <div style="font-size:13px;color:var(--gray-400);margin-bottom:20px" id="play-q-info"></div>
-      <label>ชื่อ-นามสกุล</label>
-      <input type="text" id="play-name-input" placeholder="ใส่ชื่อของคุณ">
-      <button class="btn btn-primary btn-block" onclick="startPlay()">เริ่มทำแบบทดสอบ</button>
-    </div>
-  </div>
-
-  <!-- Quiz screen -->
-  <div id="play-quiz" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-size:13px;color:var(--gray-400)" id="play-qnum">ข้อ 1/5</div>
-      <div style="font-size:13px;font-weight:600;color:var(--blue)" id="play-pname"></div>
-    </div>
-    <div class="progress-track"><div class="progress-bar" id="play-progress" style="width:0%"></div></div>
-
-    <div class="timer-wrap">
-      <div style="position:relative">
-        <svg class="timer-ring-svg" viewBox="0 0 72 72">
-          <circle class="timer-bg" cx="36" cy="36" r="30"/>
-          <circle class="timer-arc" id="timer-arc" cx="36" cy="36" r="30" stroke-dasharray="188.5" stroke-dashoffset="0"/>
-        </svg>
-        <div class="timer-label" id="timer-num">30</div>
-      </div>
-      <div class="timer-sub">วินาที</div>
-    </div>
-
-    <div class="card">
-      <img id="play-q-img" class="q-image" src="" style="display:none" alt="">
-      <div class="q-text" id="play-q-text"></div>
-      <div id="play-opts"></div>
-    </div>
-  </div>
-
-  <!-- Done screen -->
-  <div id="play-done" style="display:none">
-    <div class="card">
-      <div class="done-icon" id="done-icon">🎉</div>
-      <div class="done-title" id="done-title">ส่งคำตอบแล้ว!</div>
-      <div class="done-sub" id="done-sub"></div>
-      <div id="done-saving" style="text-align:center;padding:8px">
-        <div class="loading-dots"><span></span><span></span><span></span></div>
-        <div style="font-size:12px;color:var(--gray-400);margin-top:4px">กำลังบันทึก...</div>
-      </div>
-      <div id="done-saved" style="display:none;text-align:center;font-size:12px;color:var(--gray-400)"></div>
-      <div class="answer-grid" id="done-grid"></div>
-      <button class="btn btn-block" style="margin-top:16px" onclick="showTab('results',document.querySelector('[onclick*=results]'))">ดูผลทั้งหมด</button>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== RESULTS TAB ==================== -->
-<div id="tab-results" class="page">
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div class="card-title" style="margin:0">📊 ผลลัพธ์</div>
-      <button class="btn btn-sm" onclick="loadResults()">🔄 รีเฟรช</button>
-    </div>
-    <div class="stat-grid">
-      <div class="stat-box"><div class="stat-num" id="r-total">-</div><div class="stat-lbl">ผู้เข้าร่วม</div></div>
-      <div class="stat-box"><div class="stat-num" id="r-perfect">-</div><div class="stat-lbl">ตอบถูกทั้งหมด</div></div>
-    </div>
-    <div id="lb-list"><div class="empty-state">กด รีเฟรช เพื่อโหลดข้อมูล</div></div>
-  </div>
-</div>
-
-<!-- ==================== GIFT TAB ==================== -->
-<div id="tab-gift" class="page">
-  <div class="card">
-    <div class="card-title">🎁 กล่องของขวัญ</div>
-    <div class="row" style="margin-bottom:12px;align-items:flex-end">
-      <div class="flex-1">
-        <label>จำนวนผู้โชคดี</label>
-        <input type="number" id="gift-count" value="1" min="1" style="margin:0">
-      </div>
-      <button class="btn btn-primary" onclick="drawWinners()">🎲 สุ่มผู้โชคดี!</button>
-    </div>
-    <div class="gift-outer">
-      <div class="gift-lid">🎁 กล่องของขวัญ — ผู้ตอบถูกทั้งหมด</div>
-      <div class="gift-body" id="gift-body">
-        <div style="width:100%;text-align:center;color:#92400e;font-size:13px">กดรีเฟรชผลลัพธ์ก่อนนะครับ</div>
-      </div>
-    </div>
-    <div id="winner-area" style="margin-top:12px"></div>
   </div>
 </div>
 
 <script>
-// ==================== STATE ====================
+const LETTERS = ['A','B','C','D','E','F'];
+
+// ===== STATE =====
 const S = {
   questions: [],
   config: { title:'', expiry:'', timer:30, pin:'1234', gasUrl:'' },
-  players: [],   // loaded from sheets or local
-  editIdx: null,
-  editOpts: [],
-  editCorrect: 0,
-  editImgData: null,
-  play: { name:'', answers:[], currentQ:0, timerInterval:null, timeLeft:0, answered:false, totalSecs:30 }
+  players: [],
+  edit: { idx:null, opts:[], correct:0, imgData:null },
+  play: { name:'', answers:[], currentQ:0, timerIv:null, timeLeft:0, answered:false, totalSecs:30 }
 };
-const LETTERS = ['A','B','C','D','E','F'];
 
-// ==================== INIT ====================
-(async function init(){
-  loadLocal();
-  renderQuestions();
-  updateShareCard();
-  updateShareLink();
+// ===== INIT =====
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toLocal(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }
 
-  // set default expiry +7 days
-  if(!S.config.expiry){
-    const d = new Date(); d.setDate(d.getDate()+7);
-    S.config.expiry = toLocalInputVal(d);
-    document.getElementById('cfg-expiry').value = S.config.expiry;
-  }
-
-  // ถ้ามี Worker URL → โหลดคำถามจาก Sheets ทุกครั้งที่เปิด
-  if(S.config.gasUrl){
-    try {
-      const d = await gasGet(S.config.gasUrl, { action:'getQuiz' });
-      if(d.ok && d.questions && d.questions.length){
-        S.questions = d.questions;
-        saveQuestions();
-      }
-    } catch(e){ /* ใช้ข้อมูลใน localStorage แทน */ }
-  }
-
-  checkPlayExpiry();
-  document.getElementById('play-quiz-title').textContent = S.config.title || 'แบบทดสอบ';
-  document.getElementById('play-q-info').textContent = S.questions.length ? `${S.questions.length} ข้อ · ${S.config.timer} วินาทีต่อข้อ` : 'ยังไม่มีคำถาม';
-  renderQuestions();
-})();
-
-function loadLocal(){
-  try {
-    const c = localStorage.getItem('qz_config');
-    if(c){ Object.assign(S.config, JSON.parse(c)); applyConfig(); }
-    const q = localStorage.getItem('qz_questions');
-    if(q) S.questions = JSON.parse(q);
-    const p = localStorage.getItem('qz_players');
-    if(p) S.players = JSON.parse(p);
-  } catch(e){}
-}
-
-function applyConfig(){
-  document.getElementById('cfg-title').value = S.config.title||'';
-  document.getElementById('cfg-expiry').value = S.config.expiry||'';
-  document.getElementById('cfg-timer').value = S.config.timer||30;
-  document.getElementById('cfg-pin').value = S.config.pin||'';
-  document.getElementById('cfg-gas-url').value = S.config.gasUrl||'';
-}
-
-function saveConfig(){
-  S.config.title = document.getElementById('cfg-title').value;
-  S.config.expiry = document.getElementById('cfg-expiry').value;
-  S.config.timer = parseInt(document.getElementById('cfg-timer').value)||30;
-  S.config.pin = document.getElementById('cfg-pin').value;
-  S.config.gasUrl = document.getElementById('cfg-gas-url').value;
-  localStorage.setItem('qz_config', JSON.stringify(S.config));
-  updateShareCard();
-  updateShareLink();
-}
-
-function saveQuestions(){
-  localStorage.setItem('qz_questions', JSON.stringify(S.questions));
-}
-
-// ==================== TAB ====================
-function showTab(id, btn){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('tab-'+id).classList.add('active');
-  if(btn) btn.classList.add('active');
-  if(id==='results') loadResults();
-  if(id==='gift') renderGiftBox();
-  if(id==='play'){
-    document.getElementById('play-quiz-title').textContent = S.config.title||'แบบทดสอบ';
-    document.getElementById('play-q-info').textContent = `${S.questions.length} ข้อ · ${S.config.timer} วินาทีต่อข้อ`;
-    checkPlayExpiry();
-    document.getElementById('play-name').style.display='block';
-    document.getElementById('play-quiz').style.display='none';
-    document.getElementById('play-done').style.display='none';
-    clearInterval(S.play.timerInterval);
-  }
-}
-
-// ==================== ADMIN ====================
-function checkPin(){
-  const v = document.getElementById('pin-input').value;
-  if(v === S.config.pin){ document.getElementById('admin-locked').style.display='none'; document.getElementById('admin-content').style.display='block'; }
-  else alert('PIN ไม่ถูกต้อง');
-}
-
-function renderQuestions(){
-  document.getElementById('q-count').textContent = S.questions.length;
-  const el = document.getElementById('q-list');
-  if(!S.questions.length){ el.innerHTML='<div class="empty-state">ยังไม่มีคำถาม<br>กดปุ่ม + เพิ่ม ด้านบน</div>'; return; }
-  el.innerHTML = S.questions.map((q,i)=>`
-    <div class="q-item">
-      <div class="q-item-header">
-        <div>
-          <div class="q-item-text">ข้อ ${i+1}: ${q.text.slice(0,60)}${q.text.length>60?'…':''}</div>
-          <div class="q-item-meta">${q.options.length} ตัวเลือก · ถูก: <strong style="color:var(--green)">"${q.options[q.correct]||'-'}"</strong> ${q.imgData?'· 🖼️':''}</div>
-        </div>
-        <div class="row">
-          <button class="btn btn-sm" onclick="openEditor(${i})">✏️</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteQ(${i})">🗑️</button>
-        </div>
-      </div>
-    </div>
-  `).join('');
-}
-
-// ==================== QUESTION EDITOR ====================
-function openEditor(idx){
-  S.editIdx = idx;
-  if(idx !== null){
-    const q = S.questions[idx];
-    S.editOpts = [...q.options];
-    S.editCorrect = q.correct;
-    S.editImgData = q.imgData||null;
-    document.getElementById('ed-text').value = q.text;
-    document.getElementById('editor-title').textContent = `แก้ไขข้อ ${idx+1}`;
-  } else {
-    S.editOpts = ['','','',''];
-    S.editCorrect = 0;
-    S.editImgData = null;
-    document.getElementById('ed-text').value = '';
-    document.getElementById('editor-title').textContent = 'เพิ่มคำถาม';
-  }
-  if(S.editImgData){ document.getElementById('ed-img-prev').src=S.editImgData; document.getElementById('ed-img-wrap').style.display='block'; }
-  else document.getElementById('ed-img-wrap').style.display='none';
-  renderOptGrid();
-  document.getElementById('editor-overlay').style.display='block';
-}
-
-function closeEditor(){ document.getElementById('editor-overlay').style.display='none'; }
-
-function renderOptGrid(){
-  document.getElementById('opt-grid').innerHTML = S.editOpts.map((o,i)=>`
-    <div class="opt-wrap">
-      <input type="text" placeholder="ตัวเลือก ${LETTERS[i]}" value="${esc(o)}" oninput="S.editOpts[${i}]=this.value" style="margin:0;padding-right:36px">
-      <span class="opt-star" onclick="setCorrect(${i})" title="ตั้งเป็นคำตอบที่ถูก">${S.editCorrect===i?'⭐':'☆'}</span>
-    </div>
-  `).join('');
-}
-
-function setCorrect(i){ S.editCorrect=i; renderOptGrid(); }
-function addOpt(){ if(S.editOpts.length<6){ S.editOpts.push(''); renderOptGrid(); } }
-
-function loadEditorImg(e){
-  const f=e.target.files[0]; if(!f)return;
-  const r=new FileReader();
-  r.onload=ev=>{ S.editImgData=ev.target.result; document.getElementById('ed-img-prev').src=ev.target.result; document.getElementById('ed-img-wrap').style.display='block'; };
-  r.readAsDataURL(f);
-}
-
-function clearEditorImg(){ S.editImgData=null; document.getElementById('ed-img-wrap').style.display='none'; }
-
-function saveEditorQ(){
-  const text = document.getElementById('ed-text').value.trim();
-  if(!text){ alert('กรุณาใส่ข้อความคำถาม'); return; }
-  const opts = S.editOpts.filter(o=>o.trim());
-  if(opts.length<2){ alert('ต้องมีตัวเลือกอย่างน้อย 2 ตัวเลือก'); return; }
-  const correct = Math.min(S.editCorrect, opts.length-1);
-  const q = { text, options:opts, correct, imgData:S.editImgData||null };
-  if(S.editIdx!==null) S.questions[S.editIdx]=q; else S.questions.push(q);
-  saveQuestions(); renderQuestions(); closeEditor();
-}
-
-function deleteQ(i){ if(confirm('ลบคำถามข้อนี้?')){ S.questions.splice(i,1); saveQuestions(); renderQuestions(); } }
-
-// ==================== GAS HELPER ====================
-// ส่งผ่าน Cloudflare Worker proxy → ไม่มีปัญหา CORS
 async function gasGet(url, params){
-  // url ที่ใส่ในแอปคือ Cloudflare Worker URL (ไม่ใช่ GAS URL โดยตรง)
   const u = new URL(url);
   Object.entries(params).forEach(([k,v])=>{
     u.searchParams.set(k, typeof v==='object' ? JSON.stringify(v) : String(v));
   });
   const res = await fetch(u.toString());
   const text = await res.text();
-  try { return JSON.parse(text); }
-  catch(e){ throw new Error('Response ไม่ใช่ JSON: ' + text.slice(0,100)); }
+  try{ return JSON.parse(text); } catch(e){ throw new Error('Response ไม่ใช่ JSON: '+text.slice(0,100)); }
 }
 
-// ==================== PUSH TO SHEETS ====================
-async function pushQuizToSheet(){
-  const url = S.config.gasUrl;
-  if(!url){ alert('กรุณาใส่ Google Apps Script URL ในตั้งค่า'); return; }
-  const el = document.getElementById('push-status');
-  el.textContent = '⏳ กำลังบันทึก...';
-  try {
-    const quiz = { title:S.config.title, expiry:S.config.expiry, timer:S.config.timer, questions:S.questions.map(q=>({text:q.text,options:q.options,correct:q.correct,hasImg:!!q.imgData})) };
-    const d = await gasGet(url, { action:'saveQuiz', payload:quiz });
-    el.textContent = d.ok ? '✅ บันทึกสำเร็จ!' : '❌ เกิดข้อผิดพลาด: '+d.error;
-  } catch(e){ el.textContent = '❌ ไม่สามารถเชื่อมต่อได้: '+e.message; }
+function loadLocal(){
+  try{
+    const c=localStorage.getItem('qz_config'); if(c) Object.assign(S.config,JSON.parse(c));
+    const q=localStorage.getItem('qz_questions'); if(q) S.questions=JSON.parse(q);
+    const p=localStorage.getItem('qz_players'); if(p) S.players=JSON.parse(p);
+  }catch(e){}
 }
-
-// ==================== SHARE CARD ====================
-function loadShareBg(e){
-  const f=e.target.files[0]; if(!f)return;
-  const r=new FileReader();
-  r.onload=ev=>{ const img=document.getElementById('share-bg-img'); img.src=ev.target.result; img.style.display='block'; };
-  r.readAsDataURL(f);
+function saveConfig(){
+  S.config.title=document.getElementById('cfg-title').value;
+  S.config.expiry=document.getElementById('cfg-expiry').value;
+  S.config.timer=parseInt(document.getElementById('cfg-timer').value)||30;
+  S.config.pin=document.getElementById('cfg-pin').value;
+  S.config.gasUrl=document.getElementById('cfg-gas-url').value.trim();
+  localStorage.setItem('qz_config',JSON.stringify(S.config));
+  updateShareLink();
 }
+function saveQuestions(){ localStorage.setItem('qz_questions',JSON.stringify(S.questions)); }
 
-function updateShareCard(){
-  document.getElementById('share-card-title').textContent = S.config.title||'แบบทดสอบ';
-  document.getElementById('share-card-sub').textContent = document.getElementById('share-sub-text')?.value||'กดเพื่อทำแบบทดสอบ!';
-}
+// ===== BOOT =====
+(async function boot(){
+  loadLocal();
 
-function updateShareLink(){
-  const base = window.location.origin + window.location.pathname.replace('index.html','');
-  const expStr = S.config.expiry ? encodeURIComponent(S.config.expiry) : '';
-  const url = `${base}?play=1${expStr?'&exp='+expStr:''}`;
-  document.getElementById('share-link-text').textContent = url;
-}
-
-function copyShareLink(){
-  const txt = document.getElementById('share-link-text').textContent;
-  navigator.clipboard.writeText(txt).then(()=>alert('คัดลอกลิงค์แล้ว!'));
-}
-
-async function downloadShareCard(){
-  const cardDom = document.getElementById('share-card-dom');
-  const origW = cardDom.style.width;
-  const origH = cardDom.style.height;
-  cardDom.style.width = '1040px';
-  cardDom.style.height = '1040px';
-  // Scale font sizes
-  const titleEl = document.getElementById('share-card-title');
-  const subEl = document.getElementById('share-card-sub');
-  const origTS = titleEl.style.fontSize;
-  const origSS = subEl.style.fontSize;
-  titleEl.style.fontSize = '80px';
-  subEl.style.fontSize = '48px';
-  try {
-    const canvas = await html2canvas(cardDom, { width:1040, height:1040, scale:1, useCORS:true, allowTaint:true });
-    const link = document.createElement('a');
-    link.download = 'quiz-share-card.png';
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  } catch(e){ alert('เกิดข้อผิดพลาด: '+e.message); }
-  cardDom.style.width = origW;
-  cardDom.style.height = origH;
-  titleEl.style.fontSize = origTS;
-  subEl.style.fontSize = origSS;
-}
-
-// ==================== PLAY ====================
-function checkPlayExpiry(){
-  const warn = document.getElementById('expiry-warn');
-  if(!S.config.expiry){ warn.innerHTML=''; return; }
-  if(new Date(S.config.expiry) < new Date()){
-    warn.innerHTML = '<div class="expired-banner">⏰ แบบทดสอบนี้หมดอายุแล้ว ไม่สามารถทำได้</div>';
+  if(IS_PLAYER){
+    document.getElementById('player-app').style.display='block';
+    await bootPlayer();
   } else {
-    warn.innerHTML = `<div style="font-size:12px;color:var(--gray-400);text-align:center;margin-bottom:8px">หมดอายุ: ${new Date(S.config.expiry).toLocaleString('th-TH')}</div>`;
+    document.getElementById('admin-app').style.display='block';
+    bootAdmin();
   }
+})();
+
+// ===== PLAYER BOOT =====
+async function bootPlayer(){
+  const gasUrl = S.config.gasUrl;
+
+  // โหลดคำถามจาก Sheets ถ้ามี URL
+  if(gasUrl){
+    try{
+      const d = await gasGet(gasUrl, {action:'getQuiz'});
+      if(d.ok && d.questions && d.questions.length){
+        S.questions = d.questions;
+        if(d.config){
+          if(d.config.title) S.config.title = d.config.title;
+          if(d.config.expiry) S.config.expiry = d.config.expiry;
+          if(d.config.timer) S.config.timer = parseInt(d.config.timer)||30;
+        }
+        saveQuestions();
+      }
+    }catch(e){}
+  }
+
+  document.getElementById('p-loading').style.display='none';
+
+  // ตรวจหมดอายุ
+  if(S.config.expiry && new Date(S.config.expiry)<new Date()){
+    document.getElementById('p-expired').style.display='block'; return;
+  }
+  if(!S.questions.length){
+    document.getElementById('p-expired').innerHTML='<div class="expired-card"><div class="emoji">😕</div><h2>ยังไม่มีคำถาม</h2><p>ติดต่อแอดมินนะครับ</p></div>';
+    document.getElementById('p-expired').style.display='block'; return;
+  }
+
+  document.getElementById('p-quiz-title').textContent = '🎯 '+( S.config.title||'Quiz Time!');
+  document.getElementById('p-name-info').textContent = `${S.questions.length} ข้อ · ${S.config.timer} วินาทีต่อข้อ`;
+  document.getElementById('p-name').style.display='block';
 }
 
+// ===== PLAYER PLAY =====
 function startPlay(){
-  if(S.config.expiry && new Date(S.config.expiry)<new Date()){ alert('แบบทดสอบหมดอายุแล้ว'); return; }
-  const name = document.getElementById('play-name-input').value.trim();
-  if(!name){ alert('กรุณาใส่ชื่อก่อนเริ่ม'); return; }
-  if(!S.questions.length){ alert('ยังไม่มีคำถาม'); return; }
-  const p = S.play;
-  p.name = name; p.answers = []; p.currentQ = 0; p.answered = false;
-  p.totalSecs = parseInt(S.config.timer)||30;
-  document.getElementById('play-pname').textContent = name;
-  document.getElementById('play-name').style.display='none';
-  document.getElementById('play-quiz').style.display='block';
-  showQuestion();
+  const name = document.getElementById('p-name-input').value.trim();
+  if(!name){ alert('กรุณาใส่ชื่อก่อนนะ 😊'); return; }
+  const p=S.play;
+  p.name=name; p.answers=[]; p.currentQ=0; p.answered=false;
+  p.totalSecs=parseInt(S.config.timer)||30;
+  document.getElementById('p-nametag').textContent=name;
+  document.getElementById('p-name').style.display='none';
+  document.getElementById('p-quiz').style.display='block';
+  showQ();
 }
 
-function showQuestion(){
+function showQ(){
   const p=S.play, q=S.questions[p.currentQ], total=S.questions.length;
   p.answered=false;
-  document.getElementById('play-qnum').textContent=`ข้อ ${p.currentQ+1}/${total}`;
-  document.getElementById('play-progress').style.width=`${(p.currentQ/total)*100}%`;
-  
-  if(q.imgData){ document.getElementById('play-q-img').src=q.imgData; document.getElementById('play-q-img').style.display='block'; }
-  else document.getElementById('play-q-img').style.display='none';
-  document.getElementById('play-q-text').textContent=q.text;
-  
-  document.getElementById('play-opts').innerHTML=q.options.map((o,i)=>`
-    <button class="opt-btn" id="opt-btn-${i}" onclick="pickAnswer(${i})">
-      <span class="opt-letter">${LETTERS[i]}</span>${o}
-    </button>
-  `).join('');
+  document.getElementById('p-qnum').textContent=`ข้อ ${p.currentQ+1}/${total}`;
+  document.getElementById('p-prog').style.width=`${(p.currentQ/total)*100}%`;
+  if(q.imgData){ document.getElementById('p-q-img').src=q.imgData; document.getElementById('p-q-img').style.display='block'; }
+  else document.getElementById('p-q-img').style.display='none';
+  document.getElementById('p-q-text').textContent=q.text;
+  document.getElementById('p-opts').innerHTML=q.options.map((o,i)=>`
+    <button class="opt-btn" id="opt-${i}" onclick="pickAns(${i})">
+      <span class="opt-letter">${LETTERS[i]}</span>${esc(o)}
+    </button>`).join('');
   startTimer();
 }
 
 const CIRC=188.5;
 function startTimer(){
-  clearInterval(S.play.timerInterval);
+  clearInterval(S.play.timerIv);
   const p=S.play; p.timeLeft=p.totalSecs;
-  const numEl=document.getElementById('timer-num');
-  const arc=document.getElementById('timer-arc');
+  const numEl=document.getElementById('p-timer-num');
+  const circle=document.getElementById('p-timer-circle');
   numEl.textContent=p.timeLeft;
-  arc.style.stroke='var(--blue)';
-  arc.style.strokeDashoffset='0';
-  S.play.timerInterval=setInterval(()=>{
+  circle.classList.remove('urgent');
+  S.play.timerIv=setInterval(()=>{
     p.timeLeft--;
     numEl.textContent=p.timeLeft;
-    arc.style.strokeDashoffset=`${CIRC*(1-p.timeLeft/p.totalSecs)}`;
-    if(p.timeLeft<=5) arc.style.stroke='var(--red)';
-    if(p.timeLeft<=0){ clearInterval(p.timerInterval); autoAdvance(); }
+    if(p.timeLeft<=5) circle.classList.add('urgent');
+    if(p.timeLeft<=0){ clearInterval(p.timerIv); autoAdv(); }
   },1000);
 }
 
-function pickAnswer(i){
-  if(S.play.answered)return;
+function pickAns(i){
+  if(S.play.answered) return;
   S.play.answered=true;
-  clearInterval(S.play.timerInterval);
-  const q=S.questions[S.play.currentQ], correct=q.correct;
+  clearInterval(S.play.timerIv);
+  const correct=S.questions[S.play.currentQ].correct;
   S.play.answers.push({qIdx:S.play.currentQ,selected:i,correct:i===correct});
   document.querySelectorAll('.opt-btn').forEach((b,idx)=>{
     b.disabled=true;
     if(idx===correct) b.classList.add('correct');
-    else if(idx===i && i!==correct) b.classList.add('wrong');
+    else if(idx===i&&i!==correct) b.classList.add('wrong');
   });
-  setTimeout(nextQ,1200);
+  setTimeout(nextQ,1300);
 }
 
-function autoAdvance(){
+function autoAdv(){
   if(!S.play.answered){
     S.play.answers.push({qIdx:S.play.currentQ,selected:-1,correct:false});
     nextQ();
   }
 }
-
-function nextQ(){
-  S.play.currentQ++;
-  if(S.play.currentQ>=S.questions.length) finishPlay();
-  else showQuestion();
-}
+function nextQ(){ S.play.currentQ++; if(S.play.currentQ>=S.questions.length) finishPlay(); else showQ(); }
 
 async function finishPlay(){
-  clearInterval(S.play.timerInterval);
+  clearInterval(S.play.timerIv);
   const p=S.play, total=S.questions.length;
   const correctCount=p.answers.filter(a=>a.correct).length;
   const isPerfect=correctCount===total;
-  document.getElementById('play-quiz').style.display='none';
-  document.getElementById('play-done').style.display='block';
-  document.getElementById('done-icon').textContent=isPerfect?'🏆':correctCount>total/2?'😊':'😅';
-  document.getElementById('done-title').textContent=isPerfect?'เก่งมาก! ตอบถูกทั้งหมด!':`ตอบถูก ${correctCount}/${total} ข้อ`;
-  document.getElementById('done-sub').textContent=`คุณ${p.name} ทำได้ ${correctCount} จาก ${total} ข้อ`;
-  document.getElementById('done-grid').innerHTML=p.answers.map((a,i)=>`
-    <div class="answer-cell ${a.correct?'ok':'no'}">ข้อ ${i+1}<br>${a.correct?'✅':'❌'}</div>
-  `).join('');
-  
-  // Save locally
+  document.getElementById('p-quiz').style.display='none';
+  document.getElementById('p-done').style.display='block';
+  document.getElementById('p-done-emoji').textContent=isPerfect?'🏆':correctCount>total/2?'😊':'😅';
+  document.getElementById('p-done-title').textContent=isPerfect?'เก่งมาก! ถูกทั้งหมด!':`ตอบถูก ${correctCount}/${total} ข้อ`;
+  document.getElementById('p-done-sub').textContent=`คุณ${p.name} ทำได้ ${correctCount} จาก ${total} ข้อ`;
+  document.getElementById('p-chips').innerHTML=p.answers.map((a,i)=>`<div class="chip ${a.correct?'ok':'no'}">ข้อ${i+1} ${a.correct?'✅':'❌'}</div>`).join('');
   const rec={name:p.name,answers:p.answers,correctCount,totalQ:total,timestamp:Date.now()};
-  S.players.push(rec);
-  localStorage.setItem('qz_players',JSON.stringify(S.players));
-  
-  // Send to Google Sheets
-  document.getElementById('done-saving').style.display='block';
-  document.getElementById('done-saved').style.display='none';
-  await sendToSheet(rec);
+  S.players.push(rec); localStorage.setItem('qz_players',JSON.stringify(S.players));
+  document.getElementById('p-saving').style.display='block';
+  document.getElementById('p-saved').style.display='none';
+  await sendResponse(rec);
 }
 
-async function sendToSheet(rec){
+async function sendResponse(rec){
   const url=S.config.gasUrl;
-  if(!url){ document.getElementById('done-saving').style.display='none'; document.getElementById('done-saved').style.display='block'; document.getElementById('done-saved').textContent='(ยังไม่ได้ตั้งค่า Google Sheets)'; return; }
-  try {
+  if(!url){
+    document.getElementById('p-saving').style.display='none';
+    document.getElementById('p-saved').style.display='block';
+    document.getElementById('p-saved').textContent='(ยังไม่ได้ตั้งค่า Sheets)';
+    return;
+  }
+  try{
     const payload={name:rec.name,correctCount:rec.correctCount,totalQ:rec.totalQ,answers:rec.answers.map(a=>a.correct?1:0),timestamp:new Date().toLocaleString('th-TH')};
-    const d = await gasGet(url, { action:'saveResponse', payload });
-    document.getElementById('done-saving').style.display='none';
-    document.getElementById('done-saved').style.display='block';
-    document.getElementById('done-saved').textContent=d.ok?'✅ บันทึกลง Google Sheets แล้ว':'⚠️ บันทึกไม่สำเร็จ: '+d.error;
-  } catch(e){
-    document.getElementById('done-saving').style.display='none';
-    document.getElementById('done-saved').style.display='block';
-    document.getElementById('done-saved').textContent='⚠️ เชื่อมต่อ Sheets ไม่ได้ (บันทึกไว้ในเครื่องแล้ว)';
+    const d=await gasGet(url,{action:'saveResponse',payload});
+    document.getElementById('p-saving').style.display='none';
+    document.getElementById('p-saved').style.display='block';
+    document.getElementById('p-saved').textContent=d.ok?'✅ บันทึกแล้ว!':'⚠️ '+d.error;
+  }catch(e){
+    document.getElementById('p-saving').style.display='none';
+    document.getElementById('p-saved').style.display='block';
+    document.getElementById('p-saved').textContent='⚠️ บันทึกไม่ได้ (บันทึกในเครื่องแล้ว)';
   }
 }
 
-// ==================== RESULTS ====================
+// ===== ADMIN BOOT =====
+function bootAdmin(){
+  // ตั้งค่าฟิลด์
+  document.getElementById('cfg-title').value=S.config.title||'';
+  document.getElementById('cfg-expiry').value=S.config.expiry||'';
+  document.getElementById('cfg-timer').value=S.config.timer||30;
+  document.getElementById('cfg-pin').value=S.config.pin||'';
+  document.getElementById('cfg-gas-url').value=S.config.gasUrl||'';
+  if(!S.config.expiry){
+    const d=new Date(); d.setDate(d.getDate()+7);
+    document.getElementById('cfg-expiry').value=toLocal(d);
+    S.config.expiry=toLocal(d);
+  }
+  renderQList();
+  updateShareLink();
+}
+
+// ===== ADMIN TABS =====
+function aTab(id,btn){
+  document.querySelectorAll('.a-page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('a-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='results') loadResults();
+  if(id==='gift') renderGift();
+}
+
+// ===== QUESTIONS =====
+function renderQList(){
+  document.getElementById('q-count').textContent=S.questions.length;
+  const el=document.getElementById('q-list');
+  if(!S.questions.length){el.innerHTML='<div class="empty-state">ยังไม่มีคำถาม</div>';return;}
+  el.innerHTML=S.questions.map((q,i)=>`
+    <div class="q-item">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:13px;font-weight:700">ข้อ ${i+1}: ${esc(q.text.slice(0,55))}${q.text.length>55?'…':''}</div>
+          <div style="font-size:11px;color:#aaa;margin-top:2px">${q.options.length} ตัวเลือก · ถูก: <b style="color:#00a846">${esc(q.options[q.correct]||'-')}</b>${q.imgData?' · 🖼️':''}</div>
+        </div>
+        <div class="a-row" style="flex-shrink:0">
+          <button class="a-btn a-btn-sm" onclick="openEditor(${i})">✏️</button>
+          <button class="a-btn a-btn-danger a-btn-sm" onclick="deleteQ(${i})">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openEditor(idx){
+  const e=S.edit;
+  e.idx=idx;
+  if(idx!==null){ const q=S.questions[idx]; e.opts=[...q.options]; e.correct=q.correct; e.imgData=q.imgData||null; document.getElementById('ed-text').value=q.text; document.getElementById('editor-title').textContent=`แก้ไขข้อ ${idx+1}`; }
+  else { e.opts=['','','','']; e.correct=0; e.imgData=null; document.getElementById('ed-text').value=''; document.getElementById('editor-title').textContent='เพิ่มคำถาม'; }
+  if(e.imgData){document.getElementById('ed-img-prev').src=e.imgData;document.getElementById('ed-img-wrap').style.display='block';}
+  else document.getElementById('ed-img-wrap').style.display='none';
+  renderOptGrid();
+  document.getElementById('editor-overlay').style.display='block';
+}
+function closeEditor(){document.getElementById('editor-overlay').style.display='none';}
+function renderOptGrid(){
+  document.getElementById('opt-grid').innerHTML=S.edit.opts.map((o,i)=>`
+    <div class="opt-wrap">
+      <input type="text" placeholder="ตัวเลือก ${LETTERS[i]}" value="${esc(o)}" oninput="S.edit.opts[${i}]=this.value" style="margin:0;padding-right:32px">
+      <span class="opt-star" onclick="S.edit.correct=${i};renderOptGrid()">${S.edit.correct===i?'⭐':'☆'}</span>
+    </div>`).join('');
+}
+function addOpt(){if(S.edit.opts.length<6){S.edit.opts.push('');renderOptGrid();}}
+function loadEdImg(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{S.edit.imgData=ev.target.result;document.getElementById('ed-img-prev').src=ev.target.result;document.getElementById('ed-img-wrap').style.display='block';};r.readAsDataURL(f);}
+function clearEdImg(){S.edit.imgData=null;document.getElementById('ed-img-wrap').style.display='none';}
+function saveEditorQ(){
+  const text=document.getElementById('ed-text').value.trim();
+  if(!text){alert('กรุณาใส่ข้อความคำถาม');return;}
+  const opts=S.edit.opts.filter(o=>o.trim());
+  if(opts.length<2){alert('ต้องมีตัวเลือกอย่างน้อย 2 ข้อ');return;}
+  const q={text,options:opts,correct:Math.min(S.edit.correct,opts.length-1),imgData:S.edit.imgData||null};
+  if(S.edit.idx!==null) S.questions[S.edit.idx]=q; else S.questions.push(q);
+  saveQuestions();renderQList();closeEditor();
+}
+function deleteQ(i){if(confirm('ลบข้อนี้?')){S.questions.splice(i,1);saveQuestions();renderQList();}}
+
+// ===== PUSH TO SHEETS =====
+async function pushToSheet(){
+  const url=S.config.gasUrl;
+  if(!url){alert('กรุณาใส่ Worker URL ในตั้งค่า');return;}
+  const el=document.getElementById('push-status');
+  el.innerHTML='<div class="dots"><span></span><span></span><span></span></div>';
+  try{
+    const quiz={title:S.config.title,expiry:S.config.expiry,timer:S.config.timer,questions:S.questions.map(q=>({text:q.text,options:q.options,correct:q.correct,hasImg:!!q.imgData}))};
+    const d=await gasGet(url,{action:'saveQuiz',payload:quiz});
+    el.textContent=d.ok?'✅ บันทึกสำเร็จ!':'❌ '+d.error;
+  }catch(e){el.textContent='❌ '+e.message;}
+}
+
+// ===== SHARE =====
+function loadShareBg(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=document.getElementById('share-bg-img');img.src=ev.target.result;img.style.display='block';document.getElementById('share-placeholder').style.display='none';};r.readAsDataURL(f);}
+function updateShareLink(){
+  const base=window.location.origin+window.location.pathname.replace('index.html','');
+  const url=base+'?play=1';
+  document.getElementById('share-link-text').textContent=url;
+}
+function copyLink(){navigator.clipboard.writeText(document.getElementById('share-link-text').textContent).then(()=>alert('คัดลอกแล้ว!'));}
+async function downloadCard(){
+  const dom=document.getElementById('share-card-dom');
+  const ow=dom.style.width,oh=dom.style.height;
+  dom.style.width='1040px';dom.style.height='1040px';
+  try{
+    const canvas=await html2canvas(dom,{width:1040,height:1040,scale:1,useCORS:true});
+    const a=document.createElement('a');a.download='quiz-card.png';a.href=canvas.toDataURL('image/png');a.click();
+  }catch(e){alert('เกิดข้อผิดพลาด: '+e.message);}
+  dom.style.width=ow;dom.style.height=oh;
+}
+
+// ===== RESULTS =====
 async function loadResults(){
   const url=S.config.gasUrl;
-  if(!url){ renderLeaderboard(S.players); return; }
-  document.getElementById('lb-list').innerHTML='<div style="text-align:center;padding:16px"><div class="loading-dots"><span></span><span></span><span></span></div></div>';
-  try {
-    const d = await gasGet(url, { action:'getResults' });
-    if(d.ok && d.players){ S.players=d.players; localStorage.setItem('qz_players',JSON.stringify(S.players)); }
-  } catch(e){}
-  renderLeaderboard(S.players);
+  if(!url){renderLB(S.players);return;}
+  document.getElementById('lb-list').innerHTML='<div style="text-align:center;padding:16px"><div class="dots"><span></span><span></span><span></span></div></div>';
+  try{const d=await gasGet(url,{action:'getResults'});if(d.ok&&d.players){S.players=d.players;localStorage.setItem('qz_players',JSON.stringify(S.players));}}catch(e){}
+  renderLB(S.players);
 }
-
-function renderLeaderboard(players){
-  const total=players.length;
-  const perfect=players.filter(p=>p.correctCount===p.totalQ).length;
-  document.getElementById('r-total').textContent=total;
-  document.getElementById('r-perfect').textContent=perfect;
-  if(!total){ document.getElementById('lb-list').innerHTML='<div class="empty-state">ยังไม่มีผู้เข้าร่วม</div>'; return; }
-  const sorted=[...players].sort((a,b)=>b.correctCount-a.correctCount||(a.timestamp-b.timestamp));
-  document.getElementById('lb-list').innerHTML=sorted.map((p,i)=>{
-    const qs=S.questions.length||(p.totalQ||1);
-    const detail=p.answers?p.answers.map((a,qi)=>`ข้อ${qi+1}:${a.correct?'✅':'❌'}`).join(' '):`${p.correctCount}/${p.totalQ}`;
-    return `<div class="lb-row ${i===0&&p.correctCount===p.totalQ?'gold':''}">
-      <div class="lb-rank">${i+1}</div>
-      <div>
-        <div class="lb-name">${esc(p.name)}</div>
-        <div class="lb-detail">${detail}</div>
+function renderLB(players){
+  document.getElementById('r-total').textContent=players.length;
+  document.getElementById('r-perfect').textContent=players.filter(p=>p.correctCount===p.totalQ).length;
+  if(!players.length){document.getElementById('lb-list').innerHTML='<div class="empty-state">ยังไม่มีผู้เข้าร่วม</div>';return;}
+  const sorted=[...players].sort((a,b)=>b.correctCount-a.correctCount);
+  document.getElementById('lb-list').innerHTML=sorted.map((p,i)=>`
+    <div class="lb-row ${i===0&&p.correctCount===p.totalQ?'gold':''}">
+      <div style="font-weight:700;color:#aaa;width:24px">${i+1}</div>
+      <div style="flex:1">
+        <div style="font-weight:600">${esc(p.name)}</div>
+        <div style="font-size:11px;color:#aaa">${p.answers?p.answers.map((a,qi)=>`ข้อ${qi+1}:${a.correct?'✅':'❌'}`).join(' '):''}</div>
       </div>
-      <div class="lb-score"><span class="badge ${p.correctCount===p.totalQ?'badge-green':'badge-amber'}">${p.correctCount}/${p.totalQ}</span></div>
-    </div>`;
-  }).join('');
-  renderGiftBox();
+      <span class="badge ${p.correctCount===p.totalQ?'badge-green':'badge-amber'}">${p.correctCount}/${p.totalQ}</span>
+    </div>`).join('');
+  renderGift();
 }
 
-// ==================== GIFT ====================
-function renderGiftBox(){
-  const winners=S.players.filter(p=>p.correctCount===p.totalQ);
+// ===== GIFT =====
+function renderGift(){
+  const w=S.players.filter(p=>p.correctCount===p.totalQ);
   const body=document.getElementById('gift-body');
-  if(!winners.length){ body.innerHTML='<div style="width:100%;text-align:center;color:#92400e;font-size:13px">ยังไม่มีผู้ตอบถูกทั้งหมด</div>'; return; }
-  body.innerHTML=winners.map(w=>`<div class="name-chip" data-name="${esc(w.name)}">${esc(w.name)}</div>`).join('');
+  if(!w.length){body.innerHTML='<div style="width:100%;text-align:center;color:#92400e;font-size:13px">ยังไม่มีผู้ตอบถูกทั้งหมด</div>';return;}
+  body.innerHTML=w.map(x=>`<div class="name-chip">${esc(x.name)}</div>`).join('');
   document.getElementById('winner-area').innerHTML='';
 }
-
 function drawWinners(){
-  const winners=S.players.filter(p=>p.correctCount===p.totalQ);
-  if(!winners.length){ alert('ยังไม่มีผู้ตอบถูกทั้งหมด'); return; }
-  const count=Math.min(parseInt(document.getElementById('gift-count').value)||1,winners.length);
+  const w=S.players.filter(p=>p.correctCount===p.totalQ);
+  if(!w.length){alert('ยังไม่มีผู้ตอบถูกทั้งหมด');return;}
+  const count=Math.min(parseInt(document.getElementById('gift-count').value)||1,w.length);
   const chips=document.querySelectorAll('.name-chip');
   chips.forEach(c=>c.classList.add('spin'));
-  let spins=0;
+  let n=0;
   const iv=setInterval(()=>{
-    spins++;
-    chips.forEach(c=>{ c.style.opacity=Math.random()>.3?'1':'.4'; c.style.transform=Math.random()>.5?'scale(1.08)':'scale(.93)'; });
-    if(spins>=22){
+    n++;
+    chips.forEach(c=>{c.style.opacity=Math.random()>.3?'1':'.4';c.style.transform=Math.random()>.5?'scale(1.08)':'scale(.93)';});
+    if(n>=22){
       clearInterval(iv);
-      chips.forEach(c=>{ c.classList.remove('spin'); c.style.opacity='1'; c.style.transform=''; });
-      const shuffled=[...winners].sort(()=>Math.random()-.5);
-      const sel=shuffled.slice(0,count);
+      chips.forEach(c=>{c.classList.remove('spin');c.style.opacity='1';c.style.transform='';});
+      const sel=[...w].sort(()=>Math.random()-.5).slice(0,count);
       document.getElementById('winner-area').innerHTML=`
         <div class="winner-card">
-          <div class="winner-crown">🏆</div>
-          <div class="winner-label">ผู้โชคดี ${count} ท่าน</div>
-          <div class="winner-names">${sel.map(w=>`<div class="winner-name">🎉 ${esc(w.name)}</div>`).join('')}</div>
+          <div style="font-size:36px">🏆</div>
+          <div style="font-size:12px;color:#aaa;font-weight:700;margin:4px 0">ผู้โชคดี ${count} ท่าน</div>
+          ${sel.map(x=>`<div class="winner-name">🎉 ${esc(x.name)}</div>`).join('')}
           <div class="winner-contact">ติดต่อรับของรางวัลได้ที่ Training นะจ๊ะ</div>
         </div>`;
     }
   },130);
 }
-
-// ==================== UTILS ====================
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function toLocalInputVal(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }
 </script>
 </body>
 </html>
