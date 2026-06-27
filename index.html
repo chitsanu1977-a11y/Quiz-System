@@ -468,9 +468,33 @@ async function bootPlayer(){
 }
 
 // ===== PLAYER PLAY =====
-function startPlay(){
+async function startPlay(){
   const name = document.getElementById('p-name-input').value.trim();
   if(!name){ alert('กรุณาใส่ชื่อก่อนนะ 😊'); return; }
+
+  // ตรวจชื่อซ้ำกับ Sheets ก่อนเริ่ม
+  const btn = document.querySelector('.btn-start');
+  btn.disabled=true;
+  btn.textContent='⏳ กำลังตรวจสอบ...';
+  const url = S.config.gasUrl || DEFAULT_WORKER_URL;
+  if(url){
+    try{
+      const d = await gasGet(url, {action:'checkName', name});
+      if(d.exists){
+        btn.disabled=false;
+        btn.textContent='🚀 เริ่มเลย!';
+        document.getElementById('p-name-input').style.borderColor='#ff4757';
+        // แสดงข้อความแจ้ง
+        let warn = document.getElementById('name-warn');
+        if(!warn){ warn=document.createElement('div'); warn.id='name-warn'; warn.style.cssText='color:#ff4757;font-size:13px;font-weight:600;margin-top:8px'; document.getElementById('p-name-input').after(warn); }
+        warn.textContent='⚠️ ชื่อ "'+name+'" ทำแบบทดสอบไปแล้ว!';
+        return;
+      }
+    }catch(e){ /* ถ้า check ไม่ได้ให้ผ่านไปก่อน */ }
+  }
+  btn.disabled=false;
+  btn.textContent='🚀 เริ่มเลย!';
+
   const p=S.play;
   p.name=name; p.answers=[]; p.currentQ=0; p.answered=false;
   p.totalSecs=parseInt(S.config.timer)||30;
