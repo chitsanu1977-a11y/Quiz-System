@@ -590,10 +590,27 @@ function saveEditorQ(){
 function deleteQ(i){ if(confirm('ลบคำถามข้อนี้?')){ S.questions.splice(i,1); saveQuestions(); renderQuestions(); } }
 
 // ==================== GAS HELPER (GET only — หลีกเลี่ยง CORS) ====================
-async function gasGet(url, params){
-  const qs = Object.entries(params).map(([k,v])=>k+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):v)).join('&');
-  const res = await fetch(url+'?'+qs);
-  return res.json();
+// ใช้ script-tag injection แทน fetch — ไม่มีปัญหา CORS กับ GAS เลย
+function gasGet(url, params){
+  return new Promise((resolve, reject)=>{
+    const cbName = '_gas_cb_' + Date.now();
+    const u = new URL(url);
+    Object.entries(params).forEach(([k,v])=>{
+      u.searchParams.set(k, typeof v==='object' ? JSON.stringify(v) : String(v));
+    });
+    u.searchParams.set('callback', cbName);
+    window[cbName] = function(data){
+      delete window[cbName];
+      document.getElementById('_gas_script_')?.remove();
+      resolve(data);
+    };
+    const s = document.createElement('script');
+    s.id = '_gas_script_';
+    s.src = u.toString();
+    s.onerror = ()=>{ delete window[cbName]; reject(new Error('โหลด GAS script ไม่ได้')); };
+    document.head.appendChild(s);
+    setTimeout(()=>{ delete window[cbName]; s.remove(); reject(new Error('หมดเวลาเชื่อมต่อ GAS')); }, 15000);
+  });
 }
 
 // ==================== PUSH TO SHEETS ====================
