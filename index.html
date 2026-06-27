@@ -176,6 +176,26 @@
 </head>
 <body>
 
+<script>
+// ตรวจจับ LINE in-app browser แล้ว redirect ออกไป Chrome/Safari
+(function(){
+  const ua = navigator.userAgent || '';
+  const isLINE = ua.indexOf('Line/') > -1 || ua.indexOf('FBAN') > -1;
+  if(isLINE){
+    const url = location.href;
+    // Android → เปิดด้วย intent
+    if(/android/i.test(ua)){
+      location.href = 'intent://' + url.replace(/https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+    } else {
+      // iOS → เพิ่ม ?openExternalBrowser=1 (LINE รองรับ)
+      if(url.indexOf('openExternalBrowser') === -1){
+        location.href = url + (url.indexOf('?') > -1 ? '&' : '?') + 'openExternalBrowser=1';
+      }
+    }
+  }
+})();
+</script>
+
 <!-- ==================== TOP BAR ==================== -->
 <div class="topbar">
   <div class="topbar-title">
@@ -434,20 +454,34 @@ const S = {
 const LETTERS = ['A','B','C','D','E','F'];
 
 // ==================== INIT ====================
-(function init(){
+(async function init(){
   loadLocal();
   renderQuestions();
   updateShareCard();
   updateShareLink();
-  checkPlayExpiry();
-  document.getElementById('play-quiz-title').textContent = S.config.title || 'แบบทดสอบ';
-  document.getElementById('play-q-info').textContent = S.questions.length ? `${S.questions.length} ข้อ · ${S.config.timer} วินาทีต่อข้อ` : 'ยังไม่มีคำถาม';
+
   // set default expiry +7 days
   if(!S.config.expiry){
     const d = new Date(); d.setDate(d.getDate()+7);
     S.config.expiry = toLocalInputVal(d);
     document.getElementById('cfg-expiry').value = S.config.expiry;
   }
+
+  // ถ้ามี Worker URL → โหลดคำถามจาก Sheets ทุกครั้งที่เปิด
+  if(S.config.gasUrl){
+    try {
+      const d = await gasGet(S.config.gasUrl, { action:'getQuiz' });
+      if(d.ok && d.questions && d.questions.length){
+        S.questions = d.questions;
+        saveQuestions();
+      }
+    } catch(e){ /* ใช้ข้อมูลใน localStorage แทน */ }
+  }
+
+  checkPlayExpiry();
+  document.getElementById('play-quiz-title').textContent = S.config.title || 'แบบทดสอบ';
+  document.getElementById('play-q-info').textContent = S.questions.length ? `${S.questions.length} ข้อ · ${S.config.timer} วินาทีต่อข้อ` : 'ยังไม่มีคำถาม';
+  renderQuestions();
 })();
 
 function loadLocal(){
