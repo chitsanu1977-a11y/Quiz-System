@@ -171,6 +171,7 @@ textarea{resize:vertical;min-height:68px}
 
 // ===== ตรวจว่าเป็นหน้าผู้เล่นหรือแอดมิน =====
 var IS_PLAYER = location.search.indexOf('play=1') > -1;
+var DEFAULT_WORKER_URL = 'https://square-brook-e859.chitsanu1977.workers.dev';
 </script>
 
 <!-- ========== PLAYER MODE ========== -->
@@ -432,7 +433,7 @@ function saveQuestions(){ localStorage.setItem('qz_questions',JSON.stringify(S.q
 
 // ===== PLAYER BOOT =====
 async function bootPlayer(){
-  const gasUrl = S.config.gasUrl;
+  const gasUrl = S.config.gasUrl || DEFAULT_WORKER_URL;
 
   // โหลดคำถามจาก Sheets ถ้ามี URL
   if(gasUrl){
@@ -551,7 +552,7 @@ async function finishPlay(){
 }
 
 async function sendResponse(rec){
-  const url=S.config.gasUrl;
+  const url=S.config.gasUrl||DEFAULT_WORKER_URL;
   if(!url){
     document.getElementById('p-saving').style.display='none';
     document.getElementById('p-saved').style.display='block';
@@ -652,7 +653,7 @@ function deleteQ(i){if(confirm('ลบข้อนี้?')){S.questions.splice(
 
 // ===== PUSH TO SHEETS =====
 async function pushToSheet(){
-  const url=S.config.gasUrl;
+  const url=S.config.gasUrl||DEFAULT_WORKER_URL;
   if(!url){alert('กรุณาใส่ Worker URL ในตั้งค่า');return;}
   const el=document.getElementById('push-status');
   el.innerHTML='<div class="dots"><span></span><span></span><span></span></div>';
@@ -684,7 +685,7 @@ async function downloadCard(){
 
 // ===== RESULTS =====
 async function loadResults(){
-  const url=S.config.gasUrl;
+  const url=S.config.gasUrl||DEFAULT_WORKER_URL;
   if(!url){renderLB(S.players);return;}
   document.getElementById('lb-list').innerHTML='<div style="text-align:center;padding:16px"><div class="dots"><span></span><span></span><span></span></div></div>';
   try{const d=await gasGet(url,{action:'getResults'});if(d.ok&&d.players){S.players=d.players;localStorage.setItem('qz_players',JSON.stringify(S.players));}}catch(e){}
