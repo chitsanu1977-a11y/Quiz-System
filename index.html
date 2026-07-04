@@ -495,8 +495,20 @@ async function bootPlayer(){
   document.getElementById('p-loading').style.display='none';
 
   // ตรวจหมดอายุ
-  if(S.config.expiry && new Date(S.config.expiry)<new Date()){
-    document.getElementById('p-expired').style.display='block'; return;
+  if(S.config.expiry){
+    const exp = S.config.expiry;
+    // ถ้าไม่มี Z และไม่มี +offset → เป็น local time ของ admin (ไทย UTC+7)
+    // ถ้ามี Z → เป็น UTC ให้ JS แปลงเอง
+    let expDate;
+    if(exp && !exp.includes('Z') && !exp.includes('+') && exp.length<=19){
+      // local datetime string → แปลงเป็น Date ตาม local timezone
+      expDate = new Date(exp);
+    } else {
+      expDate = new Date(exp);
+    }
+    if(!isNaN(expDate) && expDate < new Date()){
+      document.getElementById('p-expired').style.display='block'; return;
+    }
   }
   if(!S.questions.length){
     document.getElementById('p-expired').innerHTML='<div class="expired-card"><div class="emoji">😕</div><h2>ยังไม่มีคำถาม</h2><p>ติดต่อแอดมินนะครับ</p></div>';
@@ -642,16 +654,7 @@ async function finishPlay(){
   document.getElementById('p-done-title').textContent=isPerfect?'เก่งมาก! ถูกทั้งหมด!':`ตอบถูก ${correctCount}/${total} ข้อ`;
   document.getElementById('p-done-sub').textContent=`คุณ${p.name} ทำได้ ${correctCount} จาก ${total} ข้อ`;
   document.getElementById('p-chips').innerHTML=p.answers.map((a,i)=>`<div class="chip ${a.correct?'ok':'no'}">ข้อ${i+1} ${a.correct?'✅':'❌'}</div>`).join('');
-  // บล็อกชื่อซ้ำ — ชื่อเดียวกันทำได้แค่ 1 ครั้ง
-  if(S.players.some(x=>x.name.trim()===p.name.trim())){
-    document.getElementById('p-done-title').textContent='คุณส่งคำตอบไปแล้ว!';
-    document.getElementById('p-done-sub').textContent='ชื่อ "'+p.name+'" ถูกบันทึกไว้แล้วนะ 😊';
-    document.getElementById('p-saving').style.display='none';
-    document.getElementById('p-done-emoji').textContent='⚠️';
-    return;
-  }
   const rec={name:p.name,answers:p.answers,correctCount,totalQ:total,timestamp:Date.now()};
-  S.players.push(rec); localStorage.setItem('qz_players',JSON.stringify(S.players));
   document.getElementById('p-saving').style.display='block';
   document.getElementById('p-saved').style.display='none';
   await sendResponse(rec);
