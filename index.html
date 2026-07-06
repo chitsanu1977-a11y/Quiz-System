@@ -412,10 +412,14 @@ var DEFAULT_WORKER_URL = 'https://square-brook-e859.chitsanu1977.workers.dev';
       <div class="a-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div class="a-card-title" style="margin:0">👥 รายชื่อพนักงาน (<span id="staff-count">0</span>)</div>
-          <button class="a-btn a-btn-primary a-btn-sm" onclick="document.getElementById('staff-import-file').click()">📥 นำเข้า CSV</button>
-          <input type="file" id="staff-import-file" accept=".csv,.txt" style="display:none" onchange="importStaffCSV(event)">
+          <div class="a-row" style="flex-shrink:0;gap:6px">
+            <button class="a-btn a-btn-primary a-btn-sm" onclick="document.getElementById('staff-import-csv').click()">📄 CSV</button>
+            <button class="a-btn a-btn-primary a-btn-sm" onclick="document.getElementById('staff-import-xlsx').click()">📊 Excel</button>
+          </div>
+          <input type="file" id="staff-import-csv" accept=".csv,.txt" style="display:none" onchange="importStaffCSV(event)">
+          <input type="file" id="staff-import-xlsx" accept=".xlsx,.xls" style="display:none" onchange="importStaffExcel(event)">
         </div>
-        <div style="font-size:11px;color:#aaa;margin-bottom:10px">รูปแบบ CSV: ชื่อ 1 คนต่อบรรทัด หรือคั่นด้วยจุลภาค</div>
+        <div style="font-size:11px;color:#aaa;margin-bottom:10px">📄 CSV: ชื่อ 1 คนต่อบรรทัด &nbsp;|&nbsp; 📊 Excel: ชื่ออยู่คอลัมน์ A (ข้ามแถวหัวตารางได้)</div>
         <div class="a-row" style="margin-bottom:10px">
           <input type="text" id="staff-add-input" placeholder="เพิ่มชื่อพนักงาน" style="margin:0;flex:1" onkeydown="if(event.key==='Enter')addStaffOne()">
           <button class="a-btn a-btn-primary" onclick="addStaffOne()">+ เพิ่ม</button>
@@ -1049,6 +1053,56 @@ function deleteStaff(i){
 
 function clearAllStaff(){
   if(confirm('ล้างรายชื่อพนักงานทั้งหมด?')){ saveStaff([]); renderStaffList(); }
+}
+
+function importStaffExcel(e){
+  const f = e.target.files[0]; if(!f) return;
+  const statusEl = document.getElementById('staff-status');
+  statusEl.textContent = '⏳ กำลังอ่านไฟล์ Excel...';
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const data = new Uint8Array(ev.target.result);
+      // parse xlsx ด้วย SheetJS (โหลดจาก CDN)
+      if(typeof XLSX === 'undefined'){
+        statusEl.textContent = '⏳ กำลังโหลด SheetJS...';
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        script.onload = function(){ parseXLSX(data, f.name, statusEl); };
+        script.onerror = function(){ statusEl.textContent = '❌ โหลด SheetJS ไม่ได้ ลองใช้ CSV แทน'; };
+        document.head.appendChild(script);
+      } else {
+        parseXLSX(data, f.name, statusEl);
+      }
+    }catch(err){ statusEl.textContent = '❌ '+err.message; }
+  };
+  reader.readAsArrayBuffer(f);
+  e.target.value = '';
+}
+
+function parseXLSX(data, filename, statusEl){
+  try{
+    const wb = XLSX.read(data, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]]; // sheet แรก
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+    // เอาคอลัมน์ A ทุกแถว กรอง header และแถวว่าง
+    const names = [];
+    rows.forEach(function(row, i){
+      const val = String(row[0]||'').trim();
+      if(!val) return;
+      // ข้ามแถวแรกถ้าดูเหมือน header (ไม่มีช่องว่าง หรือเป็นคำภาษาไทยสั้นๆ เช่น "ชื่อ")
+      if(i===0 && (val==='ชื่อ'||val==='ชื่อ-นามสกุล'||val==='name'||val==='Name'||val==='NAME')) return;
+      if(val.length > 0 && val.length < 60) names.push(val);
+    });
+    const list = getStaff();
+    let added = 0;
+    names.forEach(function(n){ if(!list.includes(n)){ list.push(n); added++; } });
+    saveStaff(list);
+    renderStaffList();
+    statusEl.textContent = '✅ นำเข้าจาก '+filename+' ได้ '+added+' ชื่อ (ทั้งหมด '+list.length+' คน)';
+  }catch(err){
+    statusEl.textContent = '❌ อ่านไฟล์ไม่ได้: '+err.message;
+  }
 }
 
 function importStaffCSV(e){
