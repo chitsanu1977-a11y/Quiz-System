@@ -1088,11 +1088,28 @@ function parseXLSX(data, filename, statusEl){
     // เอาคอลัมน์ A ทุกแถว กรอง header และแถวว่าง
     const names = [];
     rows.forEach(function(row, i){
-      const val = String(row[0]||'').trim();
-      if(!val) return;
-      // ข้ามแถวแรกถ้าดูเหมือน header (ไม่มีช่องว่าง หรือเป็นคำภาษาไทยสั้นๆ เช่น "ชื่อ")
-      if(i===0 && (val==='ชื่อ'||val==='ชื่อ-นามสกุล'||val==='name'||val==='Name'||val==='NAME')) return;
-      if(val.length > 0 && val.length < 60) names.push(val);
+      // ข้ามแถว header — ตรวจจากคอลัมน์แรก
+      const colA = String(row[0]||'').trim();
+      if(i===0 && (colA==='รหัสพนักงาน'||colA==='ชื่อ'||colA==='ชื่อ-นามสกุล'||colA==='name'||colA==='Name'||colA==='id'||colA==='ID')) return;
+      if(!colA && !row[1] && !row[2]) return; // แถวว่าง
+
+      // ตรวจว่ามีคอลัมน์ B และ C (ชื่อ+นามสกุล) ไหม
+      const colB = String(row[1]||'').trim();
+      const colC = String(row[2]||'').trim();
+
+      let fullName = '';
+      if(colB && colC){
+        // มีทั้ง ชื่อ และ นามสกุล → รวมกัน
+        fullName = colB + ' ' + colC;
+      } else if(colB){
+        // มีแค่คอลัมน์ B
+        fullName = colB;
+      } else if(colA && isNaN(colA)){
+        // คอลัมน์ A ไม่ใช่ตัวเลข (ไม่ใช่รหัสพนักงาน)
+        fullName = colA;
+      }
+
+      if(fullName.length > 0 && fullName.length < 80) names.push(fullName);
     });
     const list = getStaff();
     let added = 0;
@@ -1229,4 +1246,3 @@ window.startPlay = async function(){
 </script>
 </body>
 </html>
-   
