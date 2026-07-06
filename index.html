@@ -1087,7 +1087,7 @@ let selectedPlayerData = null; // ข้อมูลครบ (id, dept, positio
 function getStaff(){ try{ return JSON.parse(localStorage.getItem('qz_staff')||'[]'); }catch(e){ return []; } }
 function saveStaff(list){ localStorage.setItem('qz_staff', JSON.stringify(list)); }
 // helper: ได้ชื่อเต็มจาก staff object
-function staffName(s){ return typeof s==='string' ? s : (s.name||''); }
+function staffName(s){ const n = typeof s==='string' ? s : (s.name||''); return n.replace(/\+/g,' ').replace(/\s+/g,' ').trim(); }
 
 function renderStaffList(){
   const list = getStaff();
