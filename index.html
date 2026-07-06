@@ -385,6 +385,7 @@ var DEFAULT_WORKER_URL = 'https://square-brook-e859.chitsanu1977.workers.dev';
           <div class="stat-box"><div class="stat-num" id="r-total">-</div><div class="stat-lbl">ผู้เข้าร่วม</div></div>
           <div class="stat-box"><div class="stat-num" id="r-perfect">-</div><div class="stat-lbl">ตอบถูกทั้งหมด</div></div>
         </div>
+        <div class="a-row" id="lb-filter-bar" style="margin-bottom:8px;gap:6px"></div>
         <div id="lb-list"><div class="empty-state">กดรีเฟรชเพื่อโหลด</div></div>
       </div>
     </div>
@@ -716,7 +717,8 @@ async function sendResponse(rec){
     return;
   }
   try{
-    const payload={name:rec.name,correctCount:rec.correctCount,totalQ:rec.totalQ,answers:rec.answers.map(a=>a.correct?1:0),timestamp:new Date().toLocaleString('th-TH')};
+    const sd = selectedPlayerData||{};
+    const payload={name:rec.name,correctCount:rec.correctCount,totalQ:rec.totalQ,answers:rec.answers.map(a=>a.correct?1:0),timestamp:new Date().toLocaleString('th-TH'),empId:sd.id||'',dept:sd.dept||'',position:sd.position||'',branch:sd.branch||''};
     const d=await gasGet(url,{action:'saveResponse',payload});
     document.getElementById('p-saving').style.display='none';
     document.getElementById('p-saved').style.display='block';
@@ -855,17 +857,43 @@ async function loadResults(){
   try{const d=await gasGet(url,{action:'getResults'});if(d.ok&&d.players){S.players=d.players;localStorage.setItem('qz_players',JSON.stringify(S.players));}}catch(e){}
   renderLB(S.players);
 }
-function renderLB(players){
+function renderLB(players, filterBranch, filterDept){
   document.getElementById('r-total').textContent=players.length;
   document.getElementById('r-perfect').textContent=players.filter(p=>p.correctCount===p.totalQ).length;
-  if(!players.length){document.getElementById('lb-list').innerHTML='<div class="empty-state">ยังไม่มีผู้เข้าร่วม</div>';return;}
-  const sorted=[...players].sort((a,b)=>b.correctCount-a.correctCount);
+
+  // สร้าง dropdown กรองสาขา/แผนก
+  const branches=[...new Set(players.map(p=>p.branch||'').filter(Boolean))].sort();
+  const depts=[...new Set(players.map(p=>p.dept||'').filter(Boolean))].sort();
+  const filterBar = document.getElementById('lb-filter-bar');
+  if(filterBar){
+    filterBar.innerHTML=`
+      <select onchange="applyLBFilter()" id="lb-branch-filter" style="flex:1;margin:0;font-size:12px">
+        <option value="">ทุกสาขา</option>
+        ${branches.map(b=>`<option value="${esc(b)}" ${filterBranch===b?'selected':''}>${esc(b)}</option>`).join('')}
+      </select>
+      <select onchange="applyLBFilter()" id="lb-dept-filter" style="flex:1;margin:0;font-size:12px">
+        <option value="">ทุกแผนก</option>
+        ${depts.map(d=>`<option value="${esc(d)}" ${filterDept===d?'selected':''}>${esc(d)}</option>`).join('')}
+      </select>`;
+  }
+
+  // กรอง
+  let filtered = players;
+  if(filterBranch) filtered = filtered.filter(p=>p.branch===filterBranch);
+  if(filterDept)   filtered = filtered.filter(p=>p.dept===filterDept);
+
+  if(!filtered.length){document.getElementById('lb-list').innerHTML='<div class="empty-state">ไม่มีข้อมูล</div>';renderGift();return;}
+  const sorted=[...filtered].sort((a,b)=>b.correctCount-a.correctCount);
   document.getElementById('lb-list').innerHTML=sorted.map((p,i)=>`
     <div class="lb-row ${i===0&&p.correctCount===p.totalQ?'gold':''}">
       <div style="font-weight:700;color:#aaa;width:24px">${i+1}</div>
       <div style="flex:1">
         <div style="font-weight:600">${esc(p.name)}</div>
-        <div style="font-size:11px;color:#aaa">${p.answers?p.answers.map((a,qi)=>`ข้อ${qi+1}:${a.correct?'✅':'❌'}`).join(' '):''}</div>
+        <div style="font-size:11px;color:#aaa">
+          ${p.branch?`<span style="background:#eff6ff;color:#1e40af;padding:1px 6px;border-radius:4px;margin-right:4px">${esc(p.branch)}</span>`:''}
+          ${p.dept?`<span style="background:#f0fdf4;color:#166534;padding:1px 6px;border-radius:4px;margin-right:4px">${esc(p.dept)}</span>`:''}
+          ${p.answers?p.answers.map((a,qi)=>`ข้อ${qi+1}:${a.correct?'✅':'❌'}`).join(' '):''}
+        </div>
       </div>
       <span class="badge ${p.correctCount===p.totalQ?'badge-green':'badge-amber'}">${p.correctCount}/${p.totalQ}</span>
     </div>`).join('');
@@ -873,6 +901,12 @@ function renderLB(players){
 }
 
 // ===== GIFT =====
+function applyLBFilter(){
+  const branch = document.getElementById('lb-branch-filter')?.value||'';
+  const dept   = document.getElementById('lb-dept-filter')?.value||'';
+  renderLB(S.players, branch, dept);
+}
+
 function renderGift(){
   const w=S.players.filter(p=>p.correctCount===p.totalQ);
   const body=document.getElementById('gift-body');
@@ -1021,20 +1055,29 @@ function drawWinners(){
 // ===== STAFF MANAGEMENT =====
 let usedNames = []; // ชื่อที่ทำไปแล้ว (โหลดจาก Responses sheet)
 let selectedPlayerName = null;
+let selectedPlayerData = null; // ข้อมูลครบ (id, dept, position, branch)
 
 function getStaff(){ try{ return JSON.parse(localStorage.getItem('qz_staff')||'[]'); }catch(e){ return []; } }
 function saveStaff(list){ localStorage.setItem('qz_staff', JSON.stringify(list)); }
+// helper: ได้ชื่อเต็มจาก staff object
+function staffName(s){ return typeof s==='string' ? s : (s.name||''); }
 
 function renderStaffList(){
   const list = getStaff();
   document.getElementById('staff-count').textContent = list.length;
   const el = document.getElementById('staff-list');
   if(!list.length){ el.innerHTML='<div class="empty-state">ยังไม่มีรายชื่อ</div>'; return; }
-  el.innerHTML = list.map((name,i)=>`
-    <div class="lb-row" style="padding:8px 12px">
-      <div style="flex:1;font-size:13px">${esc(name)}</div>
+  el.innerHTML = list.map((s,i)=>{
+    const name = staffName(s);
+    const meta = typeof s==='object' ? [s.dept,s.position,s.branch].filter(Boolean).join(' · ') : '';
+    return `<div class="lb-row" style="padding:8px 12px">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${esc(name)}</div>
+        ${meta?`<div style="font-size:11px;color:#aaa">${esc(meta)}</div>`:''}
+      </div>
       <button class="a-btn a-btn-danger a-btn-sm" onclick="deleteStaff(${i})">✕</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function addStaffOne(){
@@ -1042,7 +1085,7 @@ function addStaffOne(){
   const name = inp.value.trim();
   if(!name) return;
   const list = getStaff();
-  if(!list.includes(name)){ list.push(name); saveStaff(list); }
+  if(!list.some(s=>staffName(s)===name)){ list.push({id:'',name,dept:'',position:'',branch:''}); saveStaff(list); }
   inp.value='';
   renderStaffList();
 }
@@ -1088,32 +1131,32 @@ function parseXLSX(data, filename, statusEl){
     // เอาคอลัมน์ A ทุกแถว กรอง header และแถวว่าง
     const names = [];
     rows.forEach(function(row, i){
-      // ข้ามแถว header — ตรวจจากคอลัมน์แรก
-      const colA = String(row[0]||'').trim();
-      if(i===0 && (colA==='รหัสพนักงาน'||colA==='ชื่อ'||colA==='ชื่อ-นามสกุล'||colA==='name'||colA==='Name'||colA==='id'||colA==='ID')) return;
-      if(!colA && !row[1] && !row[2]) return; // แถวว่าง
+      const colA = String(row[0]||'').trim(); // รหัสพนักงาน
+      const colB = String(row[1]||'').trim(); // ชื่อ
+      const colC = String(row[2]||'').trim(); // นามสกุล
+      const colD = String(row[3]||'').trim(); // แผนก
+      const colE = String(row[4]||'').trim(); // ตำแหน่ง
+      const colF = String(row[5]||'').trim(); // สาขา
 
-      // ตรวจว่ามีคอลัมน์ B และ C (ชื่อ+นามสกุล) ไหม
-      const colB = String(row[1]||'').trim();
-      const colC = String(row[2]||'').trim();
+      // ข้ามแถว header
+      if(i===0 && (colA==='รหัสพนักงาน'||colA==='id'||colA==='ID'||colB==='ชื่อ'||colB==='name')) return;
+      if(!colB && !colA) return; // แถวว่าง
 
       let fullName = '';
-      if(colB && colC){
-        // มีทั้ง ชื่อ และ นามสกุล → รวมกัน
-        fullName = colB + ' ' + colC;
-      } else if(colB){
-        // มีแค่คอลัมน์ B
-        fullName = colB;
-      } else if(colA && isNaN(colA)){
-        // คอลัมน์ A ไม่ใช่ตัวเลข (ไม่ใช่รหัสพนักงาน)
-        fullName = colA;
-      }
+      if(colB && colC) fullName = colB + ' ' + colC;
+      else if(colB) fullName = colB;
+      else if(colA && isNaN(colA)) fullName = colA;
 
-      if(fullName.length > 0 && fullName.length < 80) names.push(fullName);
+      if(fullName.length > 0 && fullName.length < 80){
+        names.push({ id:colA, name:fullName, dept:colD, position:colE, branch:colF });
+      }
     });
     const list = getStaff();
     let added = 0;
-    names.forEach(function(n){ if(!list.includes(n)){ list.push(n); added++; } });
+    names.forEach(function(n){
+      const nm = typeof n==='object'?n.name:n;
+      if(!list.some(function(s){ return staffName(s)===nm; })){ list.push(n); added++; }
+    });
     saveStaff(list);
     renderStaffList();
     statusEl.textContent = '✅ นำเข้าจาก '+filename+' ได้ '+added+' ชื่อ (ทั้งหมด '+list.length+' คน)';
@@ -1131,7 +1174,7 @@ function importStaffCSV(e){
     const names = text.split(/[\n\r,;]+/).map(s=>s.trim()).filter(s=>s.length>0&&s.length<60);
     const list = getStaff();
     let added = 0;
-    names.forEach(n=>{ if(!list.includes(n)){ list.push(n); added++; } });
+    names.forEach(n=>{ if(!list.some(s=>staffName(s)===n)){ list.push({id:'',name:n,dept:'',position:'',branch:''}); added++; } });
     saveStaff(list);
     renderStaffList();
     document.getElementById('staff-status').textContent = `✅ นำเข้า ${added} ชื่อ (ทั้งหมด ${list.length} คน)`;
@@ -1160,15 +1203,24 @@ function searchName(val){
   const q = val.trim().toLowerCase();
   if(!q){ list.style.display='none'; return; }
   const staff = getStaff();
-  const matches = staff.filter(n=>n.toLowerCase().includes(q)).slice(0,8);
+  const matches = staff.filter(s=>{
+    const nm = staffName(s).toLowerCase();
+    const br = typeof s==='object'?(s.branch||'').toLowerCase():'';
+    return nm.includes(q)||br.includes(q);
+  }).slice(0,8);
   if(!matches.length){
     list.innerHTML='<div class="autocomplete-empty">ไม่พบชื่อ</div>';
     list.style.display='block'; return;
   }
-  list.innerHTML = matches.map(name=>{
+  list.innerHTML = matches.map(s=>{
+    const name = staffName(s);
+    const meta = typeof s==='object'?[s.branch,s.position].filter(Boolean).join(' · '):'';
     const isUsed = usedNames.includes(name.toLowerCase());
-    return `<div class="autocomplete-item" onclick="selectName('${esc(name)}',${isUsed})">
-      <span>${esc(name)}</span>
+    return `<div class="autocomplete-item" onclick="selectName(${JSON.stringify(name)},${isUsed})">
+      <div style="flex:1">
+        <div>${esc(name)}</div>
+        ${meta?`<div style="font-size:11px;color:#aaa">${esc(meta)}</div>`:''}
+      </div>
       ${isUsed?'<span class="used">ทำไปแล้ว</span>':''}
     </div>`;
   }).join('');
@@ -1178,13 +1230,15 @@ function searchName(val){
 function selectName(name, isUsed){
   document.getElementById('autocomplete-list').style.display='none';
   if(isUsed){
-    // แจ้งเตือนแต่ยังให้เลือกได้ (server จะบล็อก)
     document.getElementById('p-name-input').value='';
     let warn = document.getElementById('name-warn');
     if(!warn){ warn=document.createElement('div'); warn.id='name-warn'; warn.style.cssText='color:#ff4757;font-size:13px;font-weight:600;margin:6px 0'; document.getElementById('autocomplete-list').after(warn); }
     warn.textContent='⚠️ "'+name+'" ทำแบบทดสอบไปแล้ว กรุณาติดต่อแอดมิน';
     return;
   }
+  // หาข้อมูลครบจาก staff list
+  const staff = getStaff();
+  selectedPlayerData = staff.find(s=>staffName(s)===name)||{name};
   selectedPlayerName = name;
   document.getElementById('p-name-input').style.display='none';
   document.getElementById('selected-name-text').textContent = name;
@@ -1196,6 +1250,7 @@ function selectName(name, isUsed){
 
 function clearSelectedName(){
   selectedPlayerName = null;
+  selectedPlayerData = null;
   document.getElementById('p-name-input').style.display='block';
   document.getElementById('p-name-input').value='';
   document.getElementById('selected-name-display').style.display='none';
@@ -1246,4 +1301,3 @@ window.startPlay = async function(){
 </script>
 </body>
 </html>
-     
