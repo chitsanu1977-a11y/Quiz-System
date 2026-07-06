@@ -1239,22 +1239,35 @@ function searchName(val){
     list.innerHTML='<div class="autocomplete-empty">ไม่พบชื่อ</div>';
     list.style.display='block'; return;
   }
-  list.innerHTML = matches.map(s=>{
+  list.innerHTML = matches.map((s,idx)=>{
     const name = staffName(s);
     const meta = typeof s==='object'?[s.branch,s.position].filter(Boolean).join(' · '):'';
     const isUsed = usedNames.includes(name.toLowerCase());
-    return `<div class="autocomplete-item" onclick="selectName(${JSON.stringify(name)},${isUsed})">
-      <div style="flex:1">
+    return `<div class="autocomplete-item" data-idx="${idx}" data-used="${isUsed}" onclick="selectNameByIdx(this)">
+      <div style="flex:1;pointer-events:none">
         <div>${esc(name)}</div>
         ${meta?`<div style="font-size:11px;color:#aaa">${esc(meta)}</div>`:''}
       </div>
-      ${isUsed?'<span class="used">ทำไปแล้ว</span>':''}
+      ${isUsed?'<span class="used" style="pointer-events:none">ทำไปแล้ว</span>':''}
     </div>`;
   }).join('');
+  // เก็บ matches ไว้ใน closure
+  list._matches = matches;
   list.style.display='block';
 }
 
-function selectName(name, isUsed){
+function selectNameByIdx(el){
+  const list = document.getElementById('autocomplete-list');
+  const idx = parseInt(el.dataset.idx);
+  const isUsed = el.dataset.used === 'true';
+  const matches = list._matches || [];
+  const s = matches[idx];
+  if(!s) return;
+  const name = staffName(s);
+  selectName(name, isUsed, s);
+}
+
+function selectName(name, isUsed, staffObj){
   document.getElementById('autocomplete-list').style.display='none';
   if(isUsed){
     document.getElementById('p-name-input').value='';
@@ -1263,9 +1276,8 @@ function selectName(name, isUsed){
     warn.textContent='⚠️ "'+name+'" ทำแบบทดสอบไปแล้ว กรุณาติดต่อแอดมิน';
     return;
   }
-  // หาข้อมูลครบจาก staff list
-  const staff = getStaff();
-  selectedPlayerData = staff.find(s=>staffName(s)===name)||{name};
+  // ใช้ staffObj ที่ส่งมาตรงๆ หรือค้นจาก list
+  selectedPlayerData = staffObj || getStaff().find(s=>staffName(s)===name) || {name};
   selectedPlayerName = name;
   document.getElementById('p-name-input').style.display='none';
   document.getElementById('selected-name-text').textContent = name;
@@ -1328,4 +1340,3 @@ window.startPlay = async function(){
 </script>
 </body>
 </html>
-   
