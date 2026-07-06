@@ -1057,9 +1057,7 @@ function importStaffCSV(e){
   r.onload = ev => {
     const text = ev.target.result;
     // รองรับทั้ง comma, newline, semicolon
-    const names = text.split(/[
-
-,;]+/).map(s=>s.trim()).filter(s=>s.length>0&&s.length<60);
+    const names = text.split(/[\n\r,;]+/).map(s=>s.trim()).filter(s=>s.length>0&&s.length<60);
     const list = getStaff();
     let added = 0;
     names.forEach(n=>{ if(!list.includes(n)){ list.push(n); added++; } });
