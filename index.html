@@ -149,6 +149,17 @@ textarea{resize:vertical;min-height:68px}
 .dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
 @media(max-width:480px){.opt-grid{grid-template-columns:1fr}}
 
+/* ===== AUTOCOMPLETE ===== */
+.autocomplete-wrap{position:relative;margin-bottom:12px}
+.autocomplete-wrap input{margin:0}
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #ffd6eb;border-top:none;border-radius:0 0 14px 14px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 8px 20px rgba(196,77,255,.15)}
+.autocomplete-item{padding:11px 16px;font-size:14px;font-weight:500;cursor:pointer;color:#444;border-bottom:1px solid #fff0f7;display:flex;align-items:center;gap:8px;transition:.1s}
+.autocomplete-item:hover{background:#fdf0ff;color:#c44dff}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item .used{font-size:11px;color:#ff4757;font-weight:600;margin-left:auto;flex-shrink:0}
+.autocomplete-empty{padding:12px 16px;font-size:13px;color:#aaa;text-align:center}
+.selected-name-tag{background:linear-gradient(135deg,#ff6b9d22,#c44dff22);border:2px solid #c44dff;border-radius:14px;padding:10px 16px;font-size:15px;font-weight:700;color:#c44dff;text-align:center;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px}
+
 /* ===== WRONG BALLOON ===== */
 .wrong-balloon{
   position:fixed;inset:0;z-index:999;
@@ -245,7 +256,14 @@ var DEFAULT_WORKER_URL = 'https://square-brook-e859.chitsanu1977.workers.dev';
           <div class="emoji">✏️</div>
           <h2>ใส่ชื่อก่อนเริ่มนะ!</h2>
           <p id="p-name-info">มี 0 ข้อ · 30 วินาทีต่อข้อ</p>
-          <input type="text" id="p-name-input" placeholder="ชื่อ-นามสกุล" maxlength="50">
+          <div class="autocomplete-wrap">
+            <input type="text" id="p-name-input" placeholder="พิมพ์ชื่อเพื่อค้นหา..." maxlength="50" oninput="searchName(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="autocomplete-list" style="display:none"></div>
+          </div>
+          <div id="selected-name-display" style="display:none" class="selected-name-tag">
+            <span>✅</span><span id="selected-name-text"></span>
+            <span style="font-size:12px;color:#aaa;font-weight:400;cursor:pointer;margin-left:4px" onclick="clearSelectedName()">✕</span>
+          </div>
           <button class="btn-start" onclick="startPlay()">🚀 เริ่มเลย!</button>
         </div>
       </div>
@@ -301,6 +319,7 @@ var DEFAULT_WORKER_URL = 'https://square-brook-e859.chitsanu1977.workers.dev';
       <button class="tab-btn" onclick="aTab('share',this)"><span class="tab-icon">🖼️</span>แชร์</button>
       <button class="tab-btn" onclick="aTab('results',this)"><span class="tab-icon">📊</span>ผล</button>
       <button class="tab-btn" onclick="aTab('gift',this)"><span class="tab-icon">🎁</span>ของขวัญ</button>
+      <button class="tab-btn" onclick="aTab('staff',this)"><span class="tab-icon">👥</span>พนักงาน</button>
     </div>
 
     <!-- CONFIG -->
@@ -387,6 +406,28 @@ var DEFAULT_WORKER_URL = 'https://square-brook-e859.chitsanu1977.workers.dev';
     </div>
   </div>
 </div>
+
+    <!-- STAFF -->
+    <div id="a-staff" class="a-page">
+      <div class="a-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="a-card-title" style="margin:0">👥 รายชื่อพนักงาน (<span id="staff-count">0</span>)</div>
+          <button class="a-btn a-btn-primary a-btn-sm" onclick="document.getElementById('staff-import-file').click()">📥 นำเข้า CSV</button>
+          <input type="file" id="staff-import-file" accept=".csv,.txt" style="display:none" onchange="importStaffCSV(event)">
+        </div>
+        <div style="font-size:11px;color:#aaa;margin-bottom:10px">รูปแบบ CSV: ชื่อ 1 คนต่อบรรทัด หรือคั่นด้วยจุลภาค</div>
+        <div class="a-row" style="margin-bottom:10px">
+          <input type="text" id="staff-add-input" placeholder="เพิ่มชื่อพนักงาน" style="margin:0;flex:1" onkeydown="if(event.key==='Enter')addStaffOne()">
+          <button class="a-btn a-btn-primary" onclick="addStaffOne()">+ เพิ่ม</button>
+        </div>
+        <div id="staff-list" style="max-height:320px;overflow-y:auto"></div>
+        <div class="a-row" style="margin-top:10px">
+          <button class="a-btn a-btn-success a-flex" onclick="pushStaffToSheet()">💾 บันทึกลง Sheets</button>
+          <button class="a-btn a-btn-danger a-btn-sm" onclick="clearAllStaff()">ล้างทั้งหมด</button>
+        </div>
+        <div id="staff-status" style="font-size:12px;color:#aaa;margin-top:6px;text-align:center"></div>
+      </div>
+    </div>
 
 <!-- EDITOR OVERLAY -->
 <div class="editor-overlay" id="editor-overlay">
@@ -492,6 +533,8 @@ async function bootPlayer(){
     }catch(e){}
   }
 
+  await loadUsedNames();
+  await loadStaffFromSheet();
   document.getElementById('p-loading').style.display='none';
 
   // ตรวจหมดอายุ
@@ -690,7 +733,6 @@ async function sendResponse(rec){
 
 // ===== ADMIN BOOT =====
 function bootAdmin(){
-  // ตั้งค่าฟิลด์
   document.getElementById('cfg-title').value=S.config.title||'';
   document.getElementById('cfg-expiry').value=S.config.expiry||'';
   document.getElementById('cfg-timer').value=S.config.timer||30;
@@ -703,6 +745,8 @@ function bootAdmin(){
   }
   renderQList();
   updateShareLink();
+  renderStaffList();
+  loadStaffFromSheet();
 }
 
 // ===== ADMIN TABS =====
@@ -970,6 +1014,166 @@ function drawWinners(){
   }
   requestAnimationFrame(tick);
 }
+// ===== STAFF MANAGEMENT =====
+let usedNames = []; // ชื่อที่ทำไปแล้ว (โหลดจาก Responses sheet)
+let selectedPlayerName = null;
+
+function getStaff(){ try{ return JSON.parse(localStorage.getItem('qz_staff')||'[]'); }catch(e){ return []; } }
+function saveStaff(list){ localStorage.setItem('qz_staff', JSON.stringify(list)); }
+
+function renderStaffList(){
+  const list = getStaff();
+  document.getElementById('staff-count').textContent = list.length;
+  const el = document.getElementById('staff-list');
+  if(!list.length){ el.innerHTML='<div class="empty-state">ยังไม่มีรายชื่อ</div>'; return; }
+  el.innerHTML = list.map((name,i)=>`
+    <div class="lb-row" style="padding:8px 12px">
+      <div style="flex:1;font-size:13px">${esc(name)}</div>
+      <button class="a-btn a-btn-danger a-btn-sm" onclick="deleteStaff(${i})">✕</button>
+    </div>`).join('');
+}
+
+function addStaffOne(){
+  const inp = document.getElementById('staff-add-input');
+  const name = inp.value.trim();
+  if(!name) return;
+  const list = getStaff();
+  if(!list.includes(name)){ list.push(name); saveStaff(list); }
+  inp.value='';
+  renderStaffList();
+}
+
+function deleteStaff(i){
+  const list = getStaff(); list.splice(i,1); saveStaff(list); renderStaffList();
+}
+
+function clearAllStaff(){
+  if(confirm('ล้างรายชื่อพนักงานทั้งหมด?')){ saveStaff([]); renderStaffList(); }
+}
+
+function importStaffCSV(e){
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    const text = ev.target.result;
+    // รองรับทั้ง comma, newline, semicolon
+    const names = text.split(/[
+
+,;]+/).map(s=>s.trim()).filter(s=>s.length>0&&s.length<60);
+    const list = getStaff();
+    let added = 0;
+    names.forEach(n=>{ if(!list.includes(n)){ list.push(n); added++; } });
+    saveStaff(list);
+    renderStaffList();
+    document.getElementById('staff-status').textContent = `✅ นำเข้า ${added} ชื่อ (ทั้งหมด ${list.length} คน)`;
+  };
+  r.readAsText(f,'UTF-8');
+  e.target.value='';
+}
+
+async function pushStaffToSheet(){
+  const url = S.config.gasUrl || DEFAULT_WORKER_URL;
+  if(!url){ alert('กรุณาใส่ Worker URL ก่อน'); return; }
+  const el = document.getElementById('staff-status');
+  el.textContent='⏳ กำลังบันทึก...';
+  try{
+    const d = await gasGet(url, {action:'saveStaff', payload: getStaff()});
+    el.textContent = d.ok ? '✅ บันทึกสำเร็จ!' : '❌ '+d.error;
+  }catch(ex){ el.textContent='❌ '+ex.message; }
+}
+
+// ===== AUTOCOMPLETE สำหรับผู้เล่น =====
+function searchName(val){
+  selectedPlayerName = null;
+  document.getElementById('selected-name-display').style.display='none';
+  document.getElementById('p-name-input').style.display='block';
+  const list = document.getElementById('autocomplete-list');
+  const q = val.trim().toLowerCase();
+  if(!q){ list.style.display='none'; return; }
+  const staff = getStaff();
+  const matches = staff.filter(n=>n.toLowerCase().includes(q)).slice(0,8);
+  if(!matches.length){
+    list.innerHTML='<div class="autocomplete-empty">ไม่พบชื่อ</div>';
+    list.style.display='block'; return;
+  }
+  list.innerHTML = matches.map(name=>{
+    const isUsed = usedNames.includes(name.toLowerCase());
+    return `<div class="autocomplete-item" onclick="selectName('${esc(name)}',${isUsed})">
+      <span>${esc(name)}</span>
+      ${isUsed?'<span class="used">ทำไปแล้ว</span>':''}
+    </div>`;
+  }).join('');
+  list.style.display='block';
+}
+
+function selectName(name, isUsed){
+  document.getElementById('autocomplete-list').style.display='none';
+  if(isUsed){
+    // แจ้งเตือนแต่ยังให้เลือกได้ (server จะบล็อก)
+    document.getElementById('p-name-input').value='';
+    let warn = document.getElementById('name-warn');
+    if(!warn){ warn=document.createElement('div'); warn.id='name-warn'; warn.style.cssText='color:#ff4757;font-size:13px;font-weight:600;margin:6px 0'; document.getElementById('autocomplete-list').after(warn); }
+    warn.textContent='⚠️ "'+name+'" ทำแบบทดสอบไปแล้ว กรุณาติดต่อแอดมิน';
+    return;
+  }
+  selectedPlayerName = name;
+  document.getElementById('p-name-input').style.display='none';
+  document.getElementById('selected-name-text').textContent = name;
+  document.getElementById('selected-name-display').style.display='flex';
+  // clear warn
+  const warn = document.getElementById('name-warn');
+  if(warn) warn.textContent='';
+}
+
+function clearSelectedName(){
+  selectedPlayerName = null;
+  document.getElementById('p-name-input').style.display='block';
+  document.getElementById('p-name-input').value='';
+  document.getElementById('selected-name-display').style.display='none';
+  document.getElementById('autocomplete-list').style.display='none';
+}
+
+// ===== โหลด usedNames จาก Sheets =====
+async function loadUsedNames(){
+  const url = S.config.gasUrl || DEFAULT_WORKER_URL;
+  if(!url) return;
+  try{
+    const d = await gasGet(url, {action:'getResults'});
+    if(d.ok && d.players){
+      usedNames = d.players.map(p=>p.name.toLowerCase());
+    }
+  }catch(e){}
+}
+
+// โหลด staff จาก Sheets ด้วย (ถ้ามี)
+async function loadStaffFromSheet(){
+  const url = S.config.gasUrl || DEFAULT_WORKER_URL;
+  if(!url) return;
+  try{
+    const d = await gasGet(url, {action:'getStaff'});
+    if(d.ok && d.staff && d.staff.length){
+      saveStaff(d.staff);
+    }
+  }catch(e){}
+}
+
+// ===== แก้ startPlay ให้ใช้ selectedPlayerName =====
+// override startPlay
+const _origStartPlay = startPlay;
+window.startPlay = async function(){
+  // ถ้าไม่ได้เลือกจาก autocomplete
+  if(!selectedPlayerName){
+    const typed = document.getElementById('p-name-input').value.trim();
+    if(!typed){ alert('กรุณาพิมพ์และเลือกชื่อของคุณก่อนนะ 😊'); return; }
+    // ถ้าพิมพ์แต่ไม่ได้กดเลือก ให้ถามยืนยัน
+    if(!confirm('ใช้ชื่อ "'+typed+'" ใช่ไหม?')){ return; }
+    selectedPlayerName = typed;
+  }
+  document.getElementById('p-name-input').value = selectedPlayerName;
+  await _origStartPlay();
+};
+
+
 </script>
 </body>
 </html>
