@@ -1170,7 +1170,7 @@ function parseXLSX(data, filename, statusEl){
       if(!colB && !colA) return; // แถวว่าง
 
       let fullName = '';
-      if(colB && colC) fullName = colB + ' ' + colC;
+      if(colB && colC) fullName = colB.replace(/\+/g,' ').trim() + ' ' + colC.replace(/\+/g,' ').trim();
       else if(colB) fullName = colB;
       else if(colA && isNaN(colA)) fullName = colA;
 
