@@ -479,9 +479,36 @@ function toLocal(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).to
 
 async function gasGet(url, params){
   const u = new URL(url);
+  // action และ param เล็กๆ ใส่ใน URL เสมอ
+  const action = params.action||'';
+  u.searchParams.set('action', action);
+
+  // ถ้ามี payload ใหญ่ → ส่งผ่าน POST form-encoded แทน GET
+  const payload = params.payload;
+  if(payload !== undefined){
+    const payloadStr = typeof payload==='object' ? JSON.stringify(payload) : String(payload);
+    if(payloadStr.length > 1000){
+      // POST via no-cors workaround: ส่งเป็น form แล้วใช้ Worker รับ
+      const body = new URLSearchParams();
+      body.set('action', action);
+      body.set('payload', payloadStr);
+      const res = await fetch(u.origin + u.pathname, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      });
+      const text = await res.text();
+      try{ return JSON.parse(text); } catch(e){ throw new Error('Response ไม่ใช่ JSON: '+text.slice(0,100)); }
+    }
+    u.searchParams.set('payload', payloadStr);
+  }
+
+  // param อื่นๆ
   Object.entries(params).forEach(([k,v])=>{
+    if(k==='action'||k==='payload') return;
     u.searchParams.set(k, typeof v==='object' ? JSON.stringify(v) : String(v));
   });
+
   const res = await fetch(u.toString());
   const text = await res.text();
   try{ return JSON.parse(text); } catch(e){ throw new Error('Response ไม่ใช่ JSON: '+text.slice(0,100)); }
