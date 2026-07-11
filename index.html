@@ -1139,16 +1139,8 @@ function drawWinners(){
       // บันทึกผู้ได้รางวัลแล้ว
       sel.forEach(x=>{ if(!drawnWinners.includes(x.name)) drawnWinners.push(x.name); });
       setTimeout(()=>{
-        document.getElementById('winner-area').innerHTML=`
-          <div class="winner-card">
-            <div style="font-size:44px">🏆</div>
-            <div style="font-size:12px;color:#aaa;font-weight:700;margin:6px 0">ผู้โชคดี ${count} ท่าน</div>
-            ${sel.map(x=>`<div class="winner-name" style="animation:winnerPop .4s ease both">🎉 ${esc(staffName(x.name)||x.name)}</div>`).join('')}
-            <div class="winner-contact">ติดต่อรับของรางวัลได้ที่ Training นะจ๊ะ</div>
-            <button onclick="resetDrawn()" class="a-btn a-btn-sm" style="margin-top:12px;font-size:12px">🔄 รีเซ็ต (เริ่มใหม่ทั้งหมด)</button>
-          </div>`;
-        // อัปเดตกล่องให้ชื่อที่ได้แล้วหายไป
         renderGift();
+        showWinnerModal(sel, count);
       },200);
     }
   }
