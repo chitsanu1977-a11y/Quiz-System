@@ -928,6 +928,14 @@ function renderLB(players, filterBranch, filterDept){
 }
 
 // ===== GIFT =====
+function resetDrawn(){
+  if(confirm('รีเซ็ตรายชื่อผู้ได้รางวัลทั้งหมด? ทุกคนจะกลับมาในกล่องอีกครั้ง')){
+    drawnWinners=[];
+    renderGift();
+    document.getElementById('winner-area').innerHTML='';
+  }
+}
+
 function applyLBFilter(){
   const branch = document.getElementById('lb-branch-filter')?.value||'';
   const dept   = document.getElementById('lb-dept-filter')?.value||'';
@@ -938,8 +946,13 @@ function renderGift(){
   const w=S.players.filter(p=>p.correctCount===p.totalQ);
   const body=document.getElementById('gift-body');
   if(!w.length){body.innerHTML='<div style="width:100%;text-align:center;color:#92400e;font-size:13px">ยังไม่มีผู้ตอบถูกทั้งหมด</div>';return;}
-  body.innerHTML=w.map(x=>`<div class="name-chip">${esc(x.name)}</div>`).join('');
-  document.getElementById('winner-area').innerHTML='';
+  // กรองคนที่ได้รางวัลแล้วออก
+  const remaining = w.filter(x=>!drawnWinners.includes(x.name));
+  if(!remaining.length){
+    body.innerHTML='<div style="width:100%;text-align:center;color:#92400e;font-size:13px">🎉 ทุกคนได้รางวัลแล้ว!</div>';
+    return;
+  }
+  body.innerHTML=remaining.map(x=>`<div class="name-chip">${esc(staffName(x.name)||x.name)}</div>`).join('');
 }
 function playSound(type){
   try{
@@ -1065,15 +1078,21 @@ function drawWinners(){
       giftBody.innerHTML=names.map(n=>`<div class="name-chip">${esc(n)}</div>`).join('');
 
       playSound('winner');
-      const sel=[...w].sort(()=>Math.random()-.5).slice(0,count);
+      const remaining = w.filter(x=>!drawnWinners.includes(x.name));
+      const sel=remaining.sort(()=>Math.random()-.5).slice(0,count);
+      // บันทึกผู้ได้รางวัลแล้ว
+      sel.forEach(x=>{ if(!drawnWinners.includes(x.name)) drawnWinners.push(x.name); });
       setTimeout(()=>{
         document.getElementById('winner-area').innerHTML=`
           <div class="winner-card">
             <div style="font-size:44px">🏆</div>
             <div style="font-size:12px;color:#aaa;font-weight:700;margin:6px 0">ผู้โชคดี ${count} ท่าน</div>
-            ${sel.map(x=>`<div class="winner-name" style="animation:winnerPop .4s ease both">🎉 ${esc(x.name)}</div>`).join('')}
+            ${sel.map(x=>`<div class="winner-name" style="animation:winnerPop .4s ease both">🎉 ${esc(staffName(x.name)||x.name)}</div>`).join('')}
             <div class="winner-contact">ติดต่อรับของรางวัลได้ที่ Training นะจ๊ะ</div>
+            <button onclick="resetDrawn()" class="a-btn a-btn-sm" style="margin-top:12px;font-size:12px">🔄 รีเซ็ต (เริ่มใหม่ทั้งหมด)</button>
           </div>`;
+        // อัปเดตกล่องให้ชื่อที่ได้แล้วหายไป
+        renderGift();
       },200);
     }
   }
@@ -1082,7 +1101,8 @@ function drawWinners(){
 // ===== STAFF MANAGEMENT =====
 let usedNames = []; // ชื่อที่ทำไปแล้ว (โหลดจาก Responses sheet)
 let selectedPlayerName = null;
-let selectedPlayerData = null; // ข้อมูลครบ (id, dept, position, branch)
+let selectedPlayerData = null;
+let drawnWinners = []; // รายชื่อที่ได้รางวัลแล้ว // ข้อมูลครบ (id, dept, position, branch)
 
 function getStaff(){ try{ return JSON.parse(localStorage.getItem('qz_staff')||'[]'); }catch(e){ return []; } }
 function saveStaff(list){ localStorage.setItem('qz_staff', JSON.stringify(list)); }
