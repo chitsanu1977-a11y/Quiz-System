@@ -1002,13 +1002,22 @@ function renderGift(){
   const w=S.players.filter(p=>p.correctCount===p.totalQ);
   const body=document.getElementById('gift-body');
   if(!w.length){body.innerHTML='<div style="width:100%;text-align:center;color:#92400e;font-size:13px">ยังไม่มีผู้ตอบถูกทั้งหมด</div>';return;}
-  // กรองคนที่ได้รางวัลแล้วออก
-  const remaining = w.filter(x=>!drawnWinners.includes(x.name));
+  const remaining=w.filter(x=>!drawnWinners.includes(x.name));
   if(!remaining.length){
+    body.style.position='';body.style.width='';body.style.height='';
     body.innerHTML='<div style="width:100%;text-align:center;color:#92400e;font-size:13px">🎉 ทุกคนได้รางวัลแล้ว!</div>';
     return;
   }
-  body.innerHTML=remaining.map(x=>`<div class="name-chip">${esc(staffName(x.name)||x.name)}</div>`).join('');
+  // รีเซ็ต position เฉพาะรอบแรก (ยังไม่เคยสุ่ม)
+  const existingChips=body.querySelectorAll('.name-chip');
+  const existingNames=Array.from(existingChips).map(c=>c.textContent.trim());
+  const newNames=remaining.map(x=>staffName(x.name)||x.name);
+  const needRebuild=newNames.some(n=>!existingNames.includes(n))||existingNames.some(n=>!newNames.includes(n));
+  if(needRebuild){
+    // สร้างใหม่เฉพาะเมื่อจำเป็น — รีเซ็ต position ใหม่
+    body.style.position='';body.style.width='';body.style.height='';
+    body.innerHTML=remaining.map(x=>`<div class="name-chip">${esc(staffName(x.name)||x.name)}</div>`).join('');
+  }
 }
 function playSound(type){
   try{
@@ -1038,128 +1047,131 @@ function playSound(type){
 function drawWinners(){
   const w=S.players.filter(p=>p.correctCount===p.totalQ);
   if(!w.length){alert('ยังไม่มีผู้ตอบถูกทั้งหมด');return;}
-  const count=Math.min(parseInt(document.getElementById('gift-count').value)||1,w.length);
-  document.getElementById('winner-area').innerHTML='';
+  const remaining=w.filter(x=>!drawnWinners.includes(x.name));
+  if(!remaining.length){alert('ทุกคนได้รางวัลแล้ว! กด รีเซ็ต เพื่อเริ่มใหม่');return;}
+  const count=Math.min(parseInt(document.getElementById('gift-count').value)||1,remaining.length);
 
   const giftBody=document.getElementById('gift-body');
-  const names=w.map(x=>x.name);
+  const chips=Array.from(giftBody.querySelectorAll('.name-chip'));
+  if(!chips.length){alert('ยังไม่มีรายชื่อในกล่อง');return;}
 
-  // วัดขนาดกล่อง
+  // ล็อคขนาดกล่องให้คงที่ตลอด — ใช้ค่าตอนนี้
   const W=giftBody.offsetWidth||300;
-  const H=Math.max(160,names.length*40);
+  const H=giftBody.offsetHeight||160;
   giftBody.style.position='relative';
+  giftBody.style.width=W+'px';
   giftBody.style.height=H+'px';
   giftBody.style.overflow='hidden';
 
-  // สร้าง chip แบบ absolute ให้กระเด็นได้อิสระ
-  giftBody.innerHTML='';
-  const chips=names.map((name,i)=>{
-    const el=document.createElement('div');
-    el.className='name-chip';
-    el.textContent=name;
-    el.style.cssText='position:absolute;white-space:nowrap;transition:none;cursor:default;';
-    giftBody.appendChild(el);
-    // วางตำแหน่งเริ่มต้นแบบ grid
-    const cols=Math.ceil(Math.sqrt(names.length));
-    const col=i%cols, row=Math.floor(i/cols);
-    const cw=giftBody.scrollWidth||W;
-    el.style.left=((col/cols)*(cw-80)+10)+'px';
-    el.style.top=(row*44+8)+'px';
-    return el;
+  // ถ้าชื่อยังไม่มี position (รอบแรก) → วางตำแหน่งเริ่มต้น
+  chips.forEach((c,i)=>{
+    if(!c.dataset.px){
+      // กระจายทั่วกล่อง
+      const cols=Math.ceil(Math.sqrt(chips.length));
+      const col=i%cols, row=Math.floor(i/cols);
+      const startX=Math.min((col/cols)*(W-90)+8, W-90);
+      const startY=Math.min(row*36+8, H-32);
+      c.dataset.px=startX;
+      c.dataset.py=startY;
+    }
+    c.style.position='absolute';
+    c.style.left=c.dataset.px+'px';
+    c.style.top=c.dataset.py+'px';
+    c.style.transition='none';
+    c.style.whiteSpace='nowrap';
   });
 
-  // physics สำหรับแต่ละ chip
-  // Physics — velocity สูงตั้งแต่ต้น
+  // physics — ต่อจากตำแหน่งปัจจุบัน เพิ่ม velocity ใหม่
   const physics=chips.map(c=>({
-    x:parseFloat(c.style.left)||0,
-    y:parseFloat(c.style.top)||0,
-    vx:(Math.random()-0.5)*28,   // เร็วขึ้น 2x
-    vy:(Math.random()-0.5)*22,
-    rot:0,
-    vr:(Math.random()-0.5)*14
+    x:parseFloat(c.dataset.px)||0,
+    y:parseFloat(c.dataset.py)||0,
+    vx:(Math.random()-0.5)*32,
+    vy:(Math.random()-0.5)*26,
+    rot:parseFloat(c.dataset.rot)||0,
+    vr:(Math.random()-0.5)*16
   }));
 
-  const totalMs=5000;  // 5 วินาที
+  const totalMs=5000;
   const start=Date.now();
   let lastTick=0;
+  let animRunning=true;
 
   function tick(){
+    if(!animRunning) return;
     const elapsed=Date.now()-start;
     const progress=elapsed/totalMs;
+    const energy=progress<0.65?1:Math.max(0,1-(progress-0.65)/0.35);
 
-    // energy: เต็มที่จนถึง 65% แล้วค่อยๆ ลดลง
-    const energy = progress < 0.65 ? 1 : Math.max(0, 1-(progress-0.65)/0.35);
-
-    // เสียงติ๊ก — ถี่มากตอนต้น ห่างขึ้นตอนท้าย
-    const tickInterval = progress < 0.6 ? 45 : 45 + (progress-0.6)/0.4 * 320;
-    if(elapsed-lastTick > tickInterval){
-      lastTick=elapsed;
-      playSound('tick');
-    }
+    const tickInterval=progress<0.6?40:40+(progress-0.6)/0.4*340;
+    if(elapsed-lastTick>tickInterval){lastTick=elapsed;playSound('tick');}
 
     chips.forEach((c,i)=>{
       const p=physics[i];
       const cw=c.offsetWidth||80;
-      const ch=c.offsetHeight||32;
+      const ch=c.offsetHeight||30;
       const maxX=W-cw-4;
       const maxY=H-ch-4;
 
-      // friction เล็กน้อย
-      p.vx*=0.992;
-      p.vy*=0.992;
-
+      p.vx*=0.991;
+      p.vy*=0.991;
       p.x+=p.vx*energy;
       p.y+=p.vy*energy;
       p.rot+=p.vr*energy;
 
-      // bounce ชนผนัง — เด้งแรงขึ้น
-      if(p.x>maxX){ p.x=maxX; p.vx*=-0.9; playSound('tick'); }
-      if(p.x<4)   { p.x=4;    p.vx*=-0.9; playSound('tick'); }
-      if(p.y>maxY){ p.y=maxY; p.vy*=-0.9; }
-      if(p.y<4)   { p.y=4;    p.vy*=-0.9; }
+      if(p.x>maxX){p.x=maxX;p.vx*=-0.88;playSound('tick');}
+      if(p.x<4){p.x=4;p.vx*=-0.88;playSound('tick');}
+      if(p.y>maxY){p.y=maxY;p.vy*=-0.88;}
+      if(p.y<4){p.y=4;p.vy*=-0.88;}
 
-      // ถ้า velocity ต่ำเกินในช่วงยังเร็วอยู่ → kick ใหม่
-      if(energy > 0.5 && Math.abs(p.vx)<3 && Math.abs(p.vy)<3){
-        p.vx = (Math.random()-0.5)*20;
-        p.vy = (Math.random()-0.5)*16;
+      // kick ถ้านิ่งเกินในช่วง energy สูง
+      if(energy>0.5&&Math.abs(p.vx)<4&&Math.abs(p.vy)<4){
+        p.vx=(Math.random()-0.5)*24;
+        p.vy=(Math.random()-0.5)*20;
       }
 
-      const sc = 1 + energy*0.25*Math.abs(Math.sin(elapsed/45+i*1.9));
-      const hue = (elapsed/8+i*47)%360;
-      c.style.background = energy>0.08 ? `hsl(${hue},90%,82%)` : 'white';
-      c.style.left = p.x+'px';
-      c.style.top  = p.y+'px';
-      c.style.transform = `rotate(${p.rot}deg) scale(${sc})`;
+      const sc=1+energy*0.22*Math.abs(Math.sin(elapsed/45+i*1.9));
+      const hue=(elapsed/8+i*47)%360;
+      c.style.background=energy>0.05?`hsl(${hue},90%,82%)`:'white';
+      c.style.left=p.x+'px';
+      c.style.top=p.y+'px';
+      c.style.transform=`rotate(${p.rot}deg) scale(${sc})`;
     });
 
     if(elapsed<totalMs){
       requestAnimationFrame(tick);
     } else {
-      // reset กล่อง
-      giftBody.style.height='';
-      giftBody.style.overflow='';
-      // แสดงชื่อปกติใหม่
-      giftBody.innerHTML=names.map(n=>`<div class="name-chip">${esc(n)}</div>`).join('');
+      animRunning=false;
+      // บันทึกตำแหน่งสุดท้ายไว้ ไม่ reset
+      chips.forEach((c,i)=>{
+        const p=physics[i];
+        c.dataset.px=p.x;
+        c.dataset.py=p.y;
+        c.dataset.rot=p.rot;
+        c.style.transform=`rotate(${p.rot}deg)`;
+        c.style.background='white';
+      });
+
+      // สุ่มผู้โชคดี
+      const sel=[...remaining].sort(()=>Math.random()-.5).slice(0,count);
+      sel.forEach(x=>{if(!drawnWinners.includes(x.name))drawnWinners.push(x.name);});
 
       playSound('winner');
-      const remaining = w.filter(x=>!drawnWinners.includes(x.name));
-      const sel=remaining.sort(()=>Math.random()-.5).slice(0,count);
-      // บันทึกผู้ได้รางวัลแล้ว
-      sel.forEach(x=>{ if(!drawnWinners.includes(x.name)) drawnWinners.push(x.name); });
       setTimeout(()=>{
-        renderGift();
-        showWinnerModal(sel, count);
-      },200);
+        // ลบชื่อที่ได้รางวัลออกจากกล่อง (fade out)
+        chips.forEach(c=>{
+          const name=c.textContent.trim();
+          if(drawnWinners.includes(name)){
+            c.style.transition='opacity .4s ease';
+            c.style.opacity='0';
+            setTimeout(()=>c.remove(),400);
+          }
+        });
+        showWinnerModal(sel,count);
+      },300);
     }
   }
   requestAnimationFrame(tick);
 }
-// ===== STAFF MANAGEMENT =====
-let usedNames = []; // ชื่อที่ทำไปแล้ว (โหลดจาก Responses sheet)
-let selectedPlayerName = null;
-let selectedPlayerData = null;
-let drawnWinners = []; // รายชื่อที่ได้รางวัลแล้ว // ข้อมูลครบ (id, dept, position, branch)
-
 function getStaff(){ try{ return JSON.parse(localStorage.getItem('qz_staff')||'[]'); }catch(e){ return []; } }
 function saveStaff(list){ localStorage.setItem('qz_staff', JSON.stringify(list)); }
 // helper: ได้ชื่อเต็มจาก staff object
