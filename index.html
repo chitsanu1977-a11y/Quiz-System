@@ -1069,32 +1069,34 @@ function drawWinners(){
   });
 
   // physics สำหรับแต่ละ chip
+  // Physics — velocity สูงตั้งแต่ต้น
   const physics=chips.map(c=>({
-    x:parseFloat(c.style.left),
-    y:parseFloat(c.style.top),
-    vx:(Math.random()-0.5)*10,
-    vy:(Math.random()-0.5)*8,
+    x:parseFloat(c.style.left)||0,
+    y:parseFloat(c.style.top)||0,
+    vx:(Math.random()-0.5)*28,   // เร็วขึ้น 2x
+    vy:(Math.random()-0.5)*22,
     rot:0,
-    vr:(Math.random()-0.5)*6
+    vr:(Math.random()-0.5)*14
   }));
 
-  const totalMs=4000;
+  const totalMs=5000;  // 5 วินาที
   const start=Date.now();
   let lastTick=0;
 
   function tick(){
     const elapsed=Date.now()-start;
     const progress=elapsed/totalMs;
-    const energy=progress<0.72?1:Math.max(0,1-(progress-0.72)/0.28);
 
-    // เสียงติ๊ก
-    const tickInterval=progress<0.65?65:65+(progress-0.65)/0.35*300;
-    if(elapsed-lastTick>tickInterval){
+    // energy: เต็มที่จนถึง 65% แล้วค่อยๆ ลดลง
+    const energy = progress < 0.65 ? 1 : Math.max(0, 1-(progress-0.65)/0.35);
+
+    // เสียงติ๊ก — ถี่มากตอนต้น ห่างขึ้นตอนท้าย
+    const tickInterval = progress < 0.6 ? 45 : 45 + (progress-0.6)/0.4 * 320;
+    if(elapsed-lastTick > tickInterval){
       lastTick=elapsed;
       playSound('tick');
     }
 
-    // อัปเดต physics
     chips.forEach((c,i)=>{
       const p=physics[i];
       const cw=c.offsetWidth||80;
@@ -1102,26 +1104,32 @@ function drawWinners(){
       const maxX=W-cw-4;
       const maxY=H-ch-4;
 
-      p.vx*=0.995;
-      p.vy*=0.995;
+      // friction เล็กน้อย
+      p.vx*=0.992;
+      p.vy*=0.992;
+
       p.x+=p.vx*energy;
       p.y+=p.vy*energy;
       p.rot+=p.vr*energy;
 
-      // bounce ชนผนัง
-      if(p.x>maxX){p.x=maxX;p.vx*=-0.85;playSound('tick');}
-      if(p.x<4){p.x=4;p.vx*=-0.85;playSound('tick');}
-      if(p.y>maxY){p.y=maxY;p.vy*=-0.85;}
-      if(p.y<4){p.y=4;p.vy*=-0.85;}
+      // bounce ชนผนัง — เด้งแรงขึ้น
+      if(p.x>maxX){ p.x=maxX; p.vx*=-0.9; playSound('tick'); }
+      if(p.x<4)   { p.x=4;    p.vx*=-0.9; playSound('tick'); }
+      if(p.y>maxY){ p.y=maxY; p.vy*=-0.9; }
+      if(p.y<4)   { p.y=4;    p.vy*=-0.9; }
 
-      // scale กระเด้งตาม sin
-      const sc=1+energy*0.2*Math.abs(Math.sin(elapsed/55+i*1.7));
-      // สีวนรุ้ง
-      const hue=(elapsed/10+i*45)%360;
-      c.style.background=energy>0.08?`hsl(${hue},85%,85%)`:'white';
-      c.style.left=p.x+'px';
-      c.style.top=p.y+'px';
-      c.style.transform=`rotate(${p.rot}deg) scale(${sc})`;
+      // ถ้า velocity ต่ำเกินในช่วงยังเร็วอยู่ → kick ใหม่
+      if(energy > 0.5 && Math.abs(p.vx)<3 && Math.abs(p.vy)<3){
+        p.vx = (Math.random()-0.5)*20;
+        p.vy = (Math.random()-0.5)*16;
+      }
+
+      const sc = 1 + energy*0.25*Math.abs(Math.sin(elapsed/45+i*1.9));
+      const hue = (elapsed/8+i*47)%360;
+      c.style.background = energy>0.08 ? `hsl(${hue},90%,82%)` : 'white';
+      c.style.left = p.x+'px';
+      c.style.top  = p.y+'px';
+      c.style.transform = `rotate(${p.rot}deg) scale(${sc})`;
     });
 
     if(elapsed<totalMs){
