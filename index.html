@@ -459,13 +459,17 @@ var DEFAULT_WORKER_URL = 'https://square-brook-e859.chitsanu1977.workers.dev';
     </div>
     <label>ข้อความคำถาม</label>
     <textarea id="ed-text" placeholder="พิมพ์คำถาม..."></textarea>
+    <label>URL รูปจาก GitHub</label>
+    <div class="a-row" style="margin-bottom:10px;gap:6px">
+      <input type="text" id="ed-img-url" placeholder="https://chitsanu1977-a11y.github.io/Quiz-System/images/รูป.jpg" style="margin:0;flex:1" oninput="previewImgUrl(this.value)">
+      <button class="a-btn a-btn-sm" onclick="clearEdImg()">ลบ</button>
+    </div>
     <div class="upload-zone" onclick="document.getElementById('ed-img-file').click()">
-      📷 อัปโหลดรูปประกอบ (ถ้ามี)
+      📷 หรืออัปโหลดจากเครื่อง
       <input type="file" id="ed-img-file" accept="image/*" style="display:none" onchange="loadEdImg(event)">
     </div>
-    <div id="ed-img-wrap" style="display:none;margin-bottom:10px">
+    <div id="ed-img-wrap" style="display:none;margin:8px 0">
       <img id="ed-img-prev" style="width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid #e9ecef">
-      <button class="a-btn a-btn-danger a-btn-sm" style="margin-top:6px" onclick="clearEdImg()">ลบรูป</button>
     </div>
     <label>ตัวเลือก (กด ⭐ = คำตอบที่ถูก)</label>
     <div class="opt-grid" id="opt-grid"></div>
@@ -833,8 +837,21 @@ function openEditor(idx){
   e.idx=idx;
   if(idx!==null){ const q=S.questions[idx]; e.opts=[...q.options]; e.correct=q.correct; e.imgData=q.imgData||null; document.getElementById('ed-text').value=q.text; document.getElementById('editor-title').textContent=`แก้ไขข้อ ${idx+1}`; }
   else { e.opts=['','','','']; e.correct=0; e.imgData=null; document.getElementById('ed-text').value=''; document.getElementById('editor-title').textContent='เพิ่มคำถาม'; }
-  if(e.imgData){document.getElementById('ed-img-prev').src=e.imgData;document.getElementById('ed-img-wrap').style.display='block';}
-  else document.getElementById('ed-img-wrap').style.display='none';
+  const imgData = e.imgData||'';
+  if(imgData.startsWith('http')){
+    // เป็น URL
+    document.getElementById('ed-img-url').value=imgData;
+    document.getElementById('ed-img-prev').src=imgData;
+    document.getElementById('ed-img-wrap').style.display='block';
+  } else if(imgData){
+    // เป็น base64
+    document.getElementById('ed-img-url').value='';
+    document.getElementById('ed-img-prev').src=imgData;
+    document.getElementById('ed-img-wrap').style.display='block';
+  } else {
+    document.getElementById('ed-img-url').value='';
+    document.getElementById('ed-img-wrap').style.display='none';
+  }
   renderOptGrid();
   document.getElementById('editor-overlay').style.display='block';
 }
@@ -847,13 +864,36 @@ function renderOptGrid(){
     </div>`).join('');
 }
 function addOpt(){if(S.edit.opts.length<6){S.edit.opts.push('');renderOptGrid();}}
-function loadEdImg(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{S.edit.imgData=ev.target.result;document.getElementById('ed-img-prev').src=ev.target.result;document.getElementById('ed-img-wrap').style.display='block';};r.readAsDataURL(f);}
-function clearEdImg(){S.edit.imgData=null;document.getElementById('ed-img-wrap').style.display='none';}
+function loadEdImg(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    S.edit.imgData=ev.target.result;
+    document.getElementById('ed-img-url').value='';
+    document.getElementById('ed-img-prev').src=ev.target.result;
+    document.getElementById('ed-img-wrap').style.display='block';
+  };
+  r.readAsDataURL(f);
+}
+function clearEdImg(){
+  S.edit.imgData=null;
+  document.getElementById('ed-img-url').value='';
+  document.getElementById('ed-img-wrap').style.display='none';
+}
+function previewImgUrl(url){
+  if(!url.trim()){S.edit.imgData=null;document.getElementById('ed-img-wrap').style.display='none';return;}
+  S.edit.imgData=url.trim();
+  document.getElementById('ed-img-prev').src=url.trim();
+  document.getElementById('ed-img-wrap').style.display='block';
+}
 function saveEditorQ(){
   const text=document.getElementById('ed-text').value.trim();
   if(!text){alert('กรุณาใส่ข้อความคำถาม');return;}
   const opts=S.edit.opts.filter(o=>o.trim());
   if(opts.length<2){alert('ต้องมีตัวเลือกอย่างน้อย 2 ข้อ');return;}
+  // ถ้ามี URL ใหม่ใส่มา ให้ใช้ URL นั้น
+  const urlField=document.getElementById('ed-img-url').value.trim();
+  if(urlField) S.edit.imgData=urlField;
   const q={text,options:opts,correct:Math.min(S.edit.correct,opts.length-1),imgData:S.edit.imgData||null};
   if(S.edit.idx!==null) S.questions[S.edit.idx]=q; else S.questions.push(q);
   saveQuestions();renderQList();closeEditor();
@@ -867,7 +907,7 @@ async function pushToSheet(){
   const el=document.getElementById('push-status');
   el.innerHTML='<div class="dots"><span></span><span></span><span></span></div>';
   try{
-    const quiz={title:S.config.title,expiry:S.config.expiry,timer:S.config.timer,questions:S.questions.map(q=>({text:q.text,options:q.options,correct:q.correct,hasImg:!!q.imgData}))};
+    const quiz={title:S.config.title,expiry:S.config.expiry,timer:S.config.timer,questions:S.questions.map(q=>({text:q.text,options:q.options,correct:q.correct,imgUrl:q.imgData&&q.imgData.startsWith('http')?q.imgData:''}))};
     const d=await gasGet(url,{action:'saveQuiz',payload:quiz});
     el.textContent=d.ok?'✅ บันทึกสำเร็จ!':'❌ '+d.error;
   }catch(e){el.textContent='❌ '+e.message;}
