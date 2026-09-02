@@ -484,6 +484,12 @@ var DEFAULT_WORKER_URL = 'https://square-brook-e859.chitsanu1977.workers.dev';
 <script>
 const LETTERS = ['A','B','C','D','E','F'];
 
+// Global vars
+let usedNames = [];
+let selectedPlayerName = null;
+let selectedPlayerData = null;
+let drawnWinners = [];
+
 // ===== STATE =====
 const S = {
   questions: [],
