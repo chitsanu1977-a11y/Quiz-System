@@ -160,6 +160,11 @@ textarea{resize:vertical;min-height:68px}
 .autocomplete-empty{padding:12px 16px;font-size:13px;color:#aaa;text-align:center}
 .selected-name-tag{background:linear-gradient(135deg,#ff6b9d22,#c44dff22);border:2px solid #c44dff;border-radius:14px;padding:10px 16px;font-size:15px;font-weight:700;color:#c44dff;text-align:center;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px}
 
+/* ===== QR CODE MODAL ===== */
+.qr-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeInBg .2s ease}
+.qr-modal-box{background:white;border-radius:24px;padding:24px 20px;width:100%;max-width:320px;text-align:center;animation:balloonPop .3s cubic-bezier(.34,1.56,.64,1);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.qr-url{background:#f5f5f3;border-radius:8px;padding:8px 12px;font-size:11px;color:#666;word-break:break-all;margin:12px 0;line-height:1.5;text-align:left}
+
 /* ===== WINNER MODAL ===== */
 .winner-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeInBg .2s ease}
 .winner-modal-box{background:white;border-radius:24px;padding:28px 24px;width:100%;max-width:340px;text-align:center;animation:balloonPop .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative}
@@ -380,6 +385,7 @@ var DEFAULT_WORKER_URL = 'https://square-brook-e859.chitsanu1977.workers.dev';
           <button class="a-btn a-btn-primary a-flex" onclick="downloadCard()">⬇️ ดาวน์โหลดการ์ด</button>
           <button class="a-btn a-flex" onclick="copyLink()">📋 คัดลอกลิงค์</button>
         </div>
+        <button class="a-btn a-btn-block" style="margin-top:8px;justify-content:center" onclick="showQRModal()">📱 สร้าง QR Code</button>
       </div>
     </div>
 
@@ -1424,6 +1430,66 @@ window.startPlay = async function(){
   await _origStartPlay();
 };
 
+
+// ===== QR CODE =====
+function showQRModal(){
+  document.querySelectorAll('.qr-modal').forEach(function(e){e.remove();});
+  var base = window.location.origin + window.location.pathname.replace('index.html','');
+  var url  = base + '?play=1';
+  var modal = document.createElement('div');
+  modal.className = 'qr-modal';
+  modal.onclick = function(e){ if(e.target===modal) closeQRModal(); };
+  modal.innerHTML = '<div class="qr-modal-box">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    + '<div style="font-size:16px;font-weight:700;color:#333">📱 QR Code แบบทดสอบ</div>'
+    + '<button onclick="closeQRModal()" style="background:none;border:none;font-size:18px;color:#aaa;cursor:pointer">✕</button>'
+    + '</div>'
+    + '<div style="font-size:12px;color:#aaa;margin-bottom:14px">' + esc(S.config.title||'แบบทดสอบ') + '</div>'
+    + '<canvas id="qr-canvas" width="220" height="220" style="border-radius:12px;border:2px solid #f0f0f0"></canvas>'
+    + '<div class="qr-url">' + url + '</div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button onclick="downloadQR()" class="a-btn a-btn-primary" style="flex:1;justify-content:center">⬇️ บันทึกรูป</button>'
+    + '<button onclick="closeQRModal()" class="a-btn" style="flex:1;justify-content:center">ปิด</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(modal);
+  if(typeof QRCode !== 'undefined'){
+    renderQR(url);
+  } else {
+    var s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload=function(){ renderQR(url); };
+    s.onerror=function(){ loadQRFallback(url); };
+    document.head.appendChild(s);
+  }
+}
+function renderQR(url){
+  var canvas=document.getElementById('qr-canvas');
+  if(!canvas) return;
+  try{
+    new QRCode(canvas,{text:url,width:220,height:220,colorDark:'#1a1a18',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+  }catch(e){ loadQRFallback(url); }
+}
+function loadQRFallback(url){
+  var canvas=document.getElementById('qr-canvas');
+  if(!canvas) return;
+  var img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=function(){ canvas.getContext('2d').drawImage(img,0,0,220,220); };
+  img.src='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(url);
+}
+function closeQRModal(){
+  document.querySelectorAll('.qr-modal').forEach(function(e){e.remove();});
+}
+function downloadQR(){
+  var canvas=document.getElementById('qr-canvas');
+  if(!canvas) return;
+  var title=(S.config.title||'quiz').replace(/[^a-zA-Z0-9ก-๙]/g,'-');
+  var a=document.createElement('a');
+  a.download='QR-'+title+'.png';
+  a.href=canvas.toDataURL('image/png');
+  a.click();
+}
 
 </script>
 </body>
