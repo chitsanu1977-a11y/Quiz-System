@@ -1,322 +1,1468 @@
-// ============================================================
-//  Quiz System — Google Apps Script (Code.gs)
-//  แก้ไข: ใช้ GET + query string ทุก action (หลีกเลี่ยง CORS)
-// ============================================================
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Time! 🎯</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Prompt',sans-serif;min-height:100vh;background:#fff9f0}
 
-const SHEET_ID = '';  // ← ใส่ Google Sheet ID ของคุณ
-const SHEET_QUIZ      = 'QuizConfig';
-const SHEET_QUESTIONS = 'Questions';
-const SHEET_RESPONSES = 'Responses';
-const SHEET_STAFF     = 'Staff';
+/* ===== PLAYER MODE ===== */
+.player-wrap{min-height:100vh;background:linear-gradient(160deg,#fff4e6 0%,#fce4ff 100%)}
 
-// ============================================================
-//  ENTRY POINT — ทุก action ใช้ doGet เท่านั้น (GET request)
-// ============================================================
+.player-header{background:linear-gradient(135deg,#ff6b9d,#c44dff);padding:16px;text-align:center;border-radius:0 0 24px 24px;box-shadow:0 4px 20px rgba(196,77,255,.3)}
+.player-header h1{color:white;font-size:22px;font-weight:800;text-shadow:0 2px 8px rgba(0,0,0,.2)}
+.player-header p{color:rgba(255,255,255,.85);font-size:13px;margin-top:2px}
 
-// รับ POST จาก Cloudflare Worker (payload ใหญ่)
-function doPost(e) {
-  try {
-    let action = '', payload = '', name = '';
-    // รับ form-encoded body
-    if (e.postData && e.postData.contents) {
-      const body = e.postData.contents;
-      body.split('&').forEach(function(part) {
-        const idx = part.indexOf('=');
-        if(idx < 0) return;
-        const k = decodeURIComponent(part.slice(0, idx));
-        const v = decodeURIComponent(part.slice(idx + 1));
-        if(k === 'action')  action  = v;
-        if(k === 'payload') payload = v;
-        if(k === 'name')    name    = v;
+.player-body{padding:16px;max-width:540px;margin:0 auto}
+
+/* name screen */
+.name-card{background:white;border-radius:24px;padding:28px 20px;text-align:center;box-shadow:0 8px 32px rgba(255,107,157,.15);margin-top:20px;border:2px solid #ffd6eb}
+.name-card .emoji{font-size:56px;margin-bottom:8px}
+.name-card h2{font-size:20px;font-weight:800;color:#c44dff;margin-bottom:6px}
+.name-card p{font-size:13px;color:#999;margin-bottom:20px}
+.name-card input{width:100%;padding:12px 16px;border:2px solid #ffd6eb;border-radius:14px;font-size:15px;font-family:'Prompt',sans-serif;outline:none;text-align:center;color:#444;transition:.2s}
+.name-card input:focus{border-color:#c44dff;box-shadow:0 0 0 3px rgba(196,77,255,.15)}
+.btn-start{display:block;width:100%;margin-top:12px;padding:14px;background:linear-gradient(135deg,#ff6b9d,#c44dff);color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:'Prompt',sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(196,77,255,.4);transition:.15s}
+.btn-start:active{transform:scale(.97)}
+
+/* quiz screen */
+.quiz-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.q-counter{font-size:13px;font-weight:600;color:#c44dff}
+.p-name-tag{font-size:12px;font-weight:600;color:#ff6b9d;background:#fff0f7;padding:4px 10px;border-radius:99px}
+
+.prog-track{height:8px;background:#ffe4f5;border-radius:99px;margin-bottom:16px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#ff6b9d,#c44dff);border-radius:99px;transition:width .4s ease}
+
+.timer-wrap{display:flex;justify-content:center;margin-bottom:14px}
+.timer-circle{width:64px;height:64px;border-radius:50%;background:white;border:4px solid #ffd6eb;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(255,107,157,.2);position:relative}
+.timer-num{font-size:22px;font-weight:800;color:#c44dff}
+.timer-circle.urgent{border-color:#ff4757;animation:pulse .6s ease-in-out infinite alternate}
+.timer-circle.urgent .timer-num{color:#ff4757}
+@keyframes pulse{from{transform:scale(1)}to{transform:scale(1.08)}}
+
+.q-card{background:white;border-radius:20px;padding:18px;box-shadow:0 6px 24px rgba(255,107,157,.12);border:2px solid #ffd6eb;margin-bottom:12px}
+.q-img{width:100%;border-radius:12px;margin-bottom:12px;max-height:200px;object-fit:contain}
+.q-text{font-size:16px;font-weight:700;color:#333;line-height:1.6}
+
+.opt-btn{width:100%;padding:13px 16px;margin-bottom:8px;border:2px solid #ffe4f5;border-radius:14px;background:white;cursor:pointer;font-size:14px;font-weight:600;font-family:'Prompt',sans-serif;color:#555;display:flex;align-items:center;gap:10px;transition:.15s;text-align:left}
+.opt-btn:hover:not(:disabled){border-color:#c44dff;background:#fdf0ff;color:#c44dff}
+.opt-btn.selected{border-color:#c44dff;background:#fdf0ff;color:#c44dff}
+.opt-btn.correct{border-color:#00c853;background:#f0fff4;color:#00a846}
+.opt-btn.wrong{border-color:#ff4757;background:#fff0f1;color:#ff4757}
+.opt-letter{width:30px;height:30px;border-radius:50%;background:#ffe4f5;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;color:#c44dff}
+.opt-btn.correct .opt-letter{background:#00c853;color:white}
+.opt-btn.wrong .opt-letter{background:#ff4757;color:white}
+.opt-btn.selected .opt-letter{background:#c44dff;color:white}
+
+/* done screen */
+.done-card{background:white;border-radius:24px;padding:28px 20px;text-align:center;box-shadow:0 8px 32px rgba(255,107,157,.15);margin-top:20px;border:2px solid #ffd6eb}
+.done-emoji{font-size:64px;margin-bottom:8px}
+.done-title{font-size:22px;font-weight:800;color:#c44dff;margin-bottom:4px}
+.done-sub{font-size:14px;color:#999;margin-bottom:16px}
+.done-saving{color:#aaa;font-size:12px;padding:8px}
+.answer-chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px}
+.chip{padding:5px 12px;border-radius:99px;font-size:12px;font-weight:700}
+.chip.ok{background:#f0fff4;color:#00a846;border:1px solid #b2f0c8}
+.chip.no{background:#fff0f1;color:#ff4757;border:1px solid #ffc0c5}
+
+/* expired */
+.expired-card{background:white;border-radius:20px;padding:28px 20px;text-align:center;margin-top:20px;border:2px solid #ffc0c5}
+.expired-card .emoji{font-size:48px}
+.expired-card h2{font-size:18px;font-weight:800;color:#ff4757;margin:8px 0 4px}
+.expired-card p{font-size:13px;color:#aaa}
+
+/* loading */
+.loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;gap:12px}
+.loading-dots{display:flex;gap:6px}
+.loading-dots span{width:10px;height:10px;border-radius:50%;background:#c44dff;animation:dot .8s ease-in-out infinite}
+.loading-dots span:nth-child(2){animation-delay:.15s;background:#ff6b9d}
+.loading-dots span:nth-child(3){animation-delay:.3s;background:#ffab40}
+@keyframes dot{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
+.loading-text{font-size:14px;color:#bbb;font-weight:500}
+
+/* ===== ADMIN MODE ===== */
+.admin-wrap{min-height:100vh;background:#f8f9fa}
+.admin-topbar{background:#1a56db;color:white;padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.admin-topbar h1{font-size:16px;font-weight:700}
+.tab-bar{display:flex;background:white;border-bottom:1px solid #e9ecef;overflow-x:auto;position:sticky;top:52px;z-index:99}
+.tab-btn{flex:1;min-width:72px;padding:10px 4px 8px;font-size:11px;font-weight:600;color:#aaa;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:'Prompt',sans-serif;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tab-btn.active{color:#1a56db;border-bottom-color:#1a56db}
+.tab-icon{font-size:16px}
+.a-page{display:none;padding:14px;max-width:640px;margin:0 auto}
+.a-page.active{display:block}
+.a-card{background:white;border-radius:12px;border:1px solid #e9ecef;padding:14px;margin-bottom:12px}
+.a-card-title{font-size:14px;font-weight:700;color:#333;margin-bottom:12px}
+label{display:block;font-size:11px;font-weight:700;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+input[type=text],input[type=number],input[type=datetime-local],input[type=password],textarea,select{width:100%;padding:9px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;font-family:'Prompt',sans-serif;color:#333;outline:none;margin-bottom:10px;background:white;transition:.15s}
+input:focus,textarea:focus{border-color:#1a56db;box-shadow:0 0 0 3px rgba(26,86,219,.12)}
+textarea{resize:vertical;min-height:68px}
+.a-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid #dee2e6;background:white;color:#444;font-size:13px;font-weight:600;font-family:'Prompt',sans-serif;cursor:pointer;transition:.15s}
+.a-btn:hover{background:#f8f9fa}
+.a-btn-primary{background:#1a56db;color:white;border-color:#1a56db}
+.a-btn-primary:hover{background:#1342b0}
+.a-btn-success{background:#00c853;color:white;border-color:#00c853}
+.a-btn-danger{background:#ff4757;color:white;border-color:#ff4757}
+.a-btn-sm{padding:5px 10px;font-size:12px}
+.a-btn-block{width:100%;justify-content:center}
+.a-row{display:flex;gap:8px;flex-wrap:wrap}
+.a-flex{flex:1;min-width:0}
+.q-item{background:#f8f9fa;border:1px solid #e9ecef;border-radius:10px;padding:12px;margin-bottom:8px}
+.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.opt-wrap{position:relative}
+.opt-wrap input{margin:0;padding-right:34px}
+.opt-star{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:16px;cursor:pointer;user-select:none}
+.upload-zone{border:2px dashed #dee2e6;border-radius:10px;padding:16px;text-align:center;color:#aaa;font-size:13px;cursor:pointer;margin-bottom:10px;transition:.15s}
+.upload-zone:hover{border-color:#1a56db;color:#1a56db;background:#f0f4ff}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stat-box{background:#f8f9fa;border-radius:8px;padding:12px;text-align:center}
+.stat-num{font-size:26px;font-weight:800;color:#1a56db}
+.stat-lbl{font-size:11px;color:#aaa}
+.lb-row{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:#f8f9fa;border:1px solid #e9ecef;font-size:13px}
+.lb-row.gold{background:#fffbeb;border-color:#fcd34d}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700}
+.badge-green{background:#d1fae5;color:#00a846}
+.badge-amber{background:#fef3c7;color:#b45309}
+/* share card */
+.share-card-dom{width:300px;height:300px;border-radius:12px;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.share-card-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+/* gift */
+.gift-outer{border-radius:16px;overflow:hidden;border:2px solid #d97706}
+.gift-lid{background:linear-gradient(135deg,#f59e0b,#d97706);padding:10px 16px;text-align:center;color:white;font-weight:700;font-size:14px}
+.gift-body{background:linear-gradient(160deg,#fef3c7,#fde68a);min-height:140px;padding:14px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;justify-content:center}
+.name-chip{background:white;border:1px solid #fcd34d;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:600;color:#78350f;display:inline-block;transition:background .1s}
+.gift-body{position:relative}
+.winner-card{margin-top:12px;background:white;border:2px solid #00c853;border-radius:14px;padding:20px;text-align:center}
+.winner-name{font-size:20px;font-weight:800;color:#00a846;padding:3px 0}
+.winner-contact{margin-top:10px;font-size:16px;font-weight:800;color:#ff4757}
+@keyframes winnerPop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+.empty-state{text-align:center;padding:28px;color:#ccc;font-size:13px}
+.editor-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;overflow-y:auto;padding:16px}
+.editor-box{background:white;border-radius:16px;padding:20px;max-width:540px;margin:0 auto}
+.share-link-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:12px;color:#1e40af;word-break:break-all;line-height:1.6;margin-bottom:10px}
+.dots{display:inline-flex;gap:4px}
+.dots span{width:6px;height:6px;border-radius:50%;background:#1a56db;animation:dot .8s ease-in-out infinite}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+@media(max-width:480px){.opt-grid{grid-template-columns:1fr}}
+
+/* ===== AUTOCOMPLETE ===== */
+.autocomplete-wrap{position:relative;margin-bottom:12px}
+.autocomplete-wrap input{margin:0}
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #ffd6eb;border-top:none;border-radius:0 0 14px 14px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 8px 20px rgba(196,77,255,.15)}
+.autocomplete-item{padding:11px 16px;font-size:14px;font-weight:500;cursor:pointer;color:#444;border-bottom:1px solid #fff0f7;display:flex;align-items:center;gap:8px;transition:.1s}
+.autocomplete-item:hover{background:#fdf0ff;color:#c44dff}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item .used{font-size:11px;color:#ff4757;font-weight:600;margin-left:auto;flex-shrink:0}
+.autocomplete-empty{padding:12px 16px;font-size:13px;color:#aaa;text-align:center}
+.selected-name-tag{background:linear-gradient(135deg,#ff6b9d22,#c44dff22);border:2px solid #c44dff;border-radius:14px;padding:10px 16px;font-size:15px;font-weight:700;color:#c44dff;text-align:center;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px}
+
+/* ===== QR CODE MODAL ===== */
+.qr-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeInBg .2s ease}
+.qr-modal-box{background:white;border-radius:24px;padding:24px 20px;width:100%;max-width:320px;text-align:center;animation:balloonPop .3s cubic-bezier(.34,1.56,.64,1);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.qr-url{background:#f5f5f3;border-radius:8px;padding:8px 12px;font-size:11px;color:#666;word-break:break-all;margin:12px 0;line-height:1.5;text-align:left}
+
+/* ===== WINNER MODAL ===== */
+.winner-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeInBg .2s ease}
+.winner-modal-box{background:white;border-radius:24px;padding:28px 24px;width:100%;max-width:340px;text-align:center;animation:balloonPop .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative}
+.winner-modal-close{position:absolute;top:12px;right:14px;font-size:20px;color:#aaa;cursor:pointer;background:none;border:none;font-family:inherit;line-height:1}
+.winner-modal-close:hover{color:#333}
+.confetti-wrap{position:fixed;inset:0;pointer-events:none;z-index:299;overflow:hidden}
+.confetti-piece{position:absolute;width:10px;height:10px;border-radius:2px;animation:confettiFall linear forwards}
+@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+
+/* ===== WRONG BALLOON ===== */
+.wrong-balloon{
+  position:fixed;inset:0;z-index:999;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.35);
+  animation:fadeInBg .15s ease;
+}
+@keyframes fadeInBg{from{opacity:0}to{opacity:1}}
+.balloon-box{
+  background:white;
+  border-radius:32px;
+  border:4px solid #ff4757;
+  padding:28px 36px;
+  text-align:center;
+  position:relative;
+  animation:balloonPop .3s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 12px 40px rgba(255,71,87,.35);
+  max-width:280px;
+}
+@keyframes balloonPop{from{transform:scale(.3) rotate(-8deg);opacity:0}to{transform:scale(1) rotate(0deg);opacity:1}}
+.balloon-box::after{
+  content:'';
+  position:absolute;
+  bottom:-28px;left:50%;transform:translateX(-50%);
+  border:14px solid transparent;
+  border-top-color:white;
+  filter:drop-shadow(0 4px 2px rgba(255,71,87,.2));
+}
+.balloon-box::before{
+  content:'';
+  position:absolute;
+  bottom:-24px;left:50%;transform:translateX(-50%);
+  border:14px solid transparent;
+  border-top-color:#ff4757;
+  z-index:-1;
+}
+.balloon-emoji{font-size:52px;margin-bottom:4px;animation:shake .4s ease .2s}
+@keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+.balloon-text{font-size:28px;font-weight:800;color:#ff4757;line-height:1.3}
+.balloon-sub{font-size:14px;color:#aaa;margin-top:6px;font-weight:500}
+</style>
+</head>
+<body>
+
+<script>
+// ===== ตรวจจับ LINE browser → เปิด external browser =====
+(function(){
+  var ua = navigator.userAgent||'';
+  var isLINE = ua.indexOf('Line/')>-1;
+  if(isLINE){
+    var url = location.href;
+    if(/android/i.test(ua)){
+      location.href='intent://'+url.replace(/https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end';
+    } else {
+      if(url.indexOf('openExternalBrowser')===-1){
+        location.href=url+(url.indexOf('?')>-1?'&':'?')+'openExternalBrowser=1';
+      }
+    }
+  }
+})();
+
+// ===== ตรวจว่าเป็นหน้าผู้เล่นหรือแอดมิน =====
+var IS_PLAYER = location.search.indexOf('play=1') > -1;
+var DEFAULT_WORKER_URL = 'https://square-brook-e859.chitsanu1977.workers.dev';
+</script>
+
+<!-- ========== PLAYER MODE ========== -->
+<div id="player-app" style="display:none">
+  <div class="player-wrap">
+    <div class="player-header">
+      <h1 id="p-quiz-title">🎯 Quiz Time!</h1>
+      <p id="p-quiz-info">โหลดข้อมูล...</p>
+    </div>
+    <div class="player-body">
+
+      <!-- Loading -->
+      <div id="p-loading" class="loading-screen">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+        <div class="loading-text">กำลังโหลดแบบทดสอบ...</div>
+      </div>
+
+      <!-- Expired -->
+      <div id="p-expired" style="display:none">
+        <div class="expired-card">
+          <div class="emoji">⏰</div>
+          <h2>หมดเวลาแล้ว!</h2>
+          <p>แบบทดสอบนี้หมดอายุแล้ว<br>ติดต่อ Training เพื่อสอบถามข้อมูล</p>
+        </div>
+      </div>
+
+      <!-- Name screen -->
+      <div id="p-name" style="display:none">
+        <div class="name-card">
+          <div class="emoji">✏️</div>
+          <h2>ใส่ชื่อก่อนเริ่มนะ!</h2>
+          <p id="p-name-info">มี 0 ข้อ · 30 วินาทีต่อข้อ</p>
+          <div class="autocomplete-wrap">
+            <input type="text" id="p-name-input" placeholder="พิมพ์ชื่อเพื่อค้นหา..." maxlength="50" oninput="searchName(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="autocomplete-list" style="display:none"></div>
+          </div>
+          <div id="selected-name-display" style="display:none" class="selected-name-tag">
+            <span>✅</span><span id="selected-name-text"></span>
+            <span style="font-size:12px;color:#aaa;font-weight:400;cursor:pointer;margin-left:4px" onclick="clearSelectedName()">✕</span>
+          </div>
+          <button class="btn-start" onclick="startPlay()">🚀 เริ่มเลย!</button>
+        </div>
+      </div>
+
+      <!-- Quiz -->
+      <div id="p-quiz" style="display:none">
+        <div class="quiz-top">
+          <div class="q-counter" id="p-qnum">ข้อ 1/1</div>
+          <div class="p-name-tag" id="p-nametag"></div>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="p-prog" style="width:0%"></div></div>
+        <div class="timer-wrap">
+          <div class="timer-circle" id="p-timer-circle">
+            <div class="timer-num" id="p-timer-num">30</div>
+          </div>
+        </div>
+        <div class="q-card">
+          <img id="p-q-img" class="q-img" src="" alt="" style="display:none">
+          <div class="q-text" id="p-q-text"></div>
+        </div>
+        <div id="p-opts"></div>
+      </div>
+
+      <!-- Done -->
+      <div id="p-done" style="display:none">
+        <div class="done-card">
+          <div class="done-emoji" id="p-done-emoji">🎉</div>
+          <div class="done-title" id="p-done-title">ส่งคำตอบแล้ว!</div>
+          <div class="done-sub" id="p-done-sub"></div>
+          <div id="p-saving" class="done-saving">
+            <div class="loading-dots" style="justify-content:center"><span></span><span></span><span></span></div>
+            <div style="margin-top:4px">กำลังบันทึก...</div>
+          </div>
+          <div id="p-saved" style="display:none;font-size:12px;color:#aaa;text-align:center"></div>
+          <div class="answer-chips" id="p-chips"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ========== ADMIN MODE ========== -->
+<div id="admin-app" style="display:none">
+  <div class="admin-wrap">
+    <div class="admin-topbar">
+      <h1>🎯 Quiz Admin</h1>
+      <div id="a-topbar-right" style="font-size:11px;opacity:.75"></div>
+    </div>
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="aTab('cfg',this)"><span class="tab-icon">⚙️</span>ตั้งค่า</button>
+      <button class="tab-btn" onclick="aTab('questions',this)"><span class="tab-icon">📝</span>คำถาม</button>
+      <button class="tab-btn" onclick="aTab('share',this)"><span class="tab-icon">🖼️</span>แชร์</button>
+      <button class="tab-btn" onclick="aTab('results',this)"><span class="tab-icon">📊</span>ผล</button>
+      <button class="tab-btn" onclick="aTab('gift',this)"><span class="tab-icon">🎁</span>ของขวัญ</button>
+      <button class="tab-btn" onclick="aTab('staff',this)"><span class="tab-icon">👥</span>พนักงาน</button>
+    </div>
+
+    <!-- CONFIG -->
+    <div id="a-cfg" class="a-page active">
+      <div class="a-card">
+        <div class="a-card-title">⚙️ ตั้งค่าควิซ</div>
+        <label>ชื่อควิซ</label>
+        <input type="text" id="cfg-title" placeholder="เช่น ทดสอบความรู้ Isuzu" oninput="saveConfig()">
+        <div class="a-row">
+          <div class="a-flex"><label>หมดอายุ</label><input type="datetime-local" id="cfg-expiry" onchange="saveConfig()"></div>
+          <div class="a-flex"><label>วินาทีต่อข้อ</label><input type="number" id="cfg-timer" value="30" min="5" max="300" oninput="saveConfig()"></div>
+        </div>
+        <label>PIN แอดมิน</label>
+        <input type="password" id="cfg-pin" placeholder="4 หลัก" maxlength="4" oninput="saveConfig()">
+        <label>Cloudflare Worker URL</label>
+        <input type="text" id="cfg-gas-url" placeholder="https://xxxx.workers.dev" oninput="saveConfig()">
+      </div>
+      <button class="a-btn a-btn-success a-btn-block" onclick="pushToSheet()">💾 บันทึกลง Google Sheets</button>
+      <div id="push-status" style="text-align:center;font-size:13px;color:#aaa;margin-top:8px;min-height:20px"></div>
+    </div>
+
+    <!-- QUESTIONS -->
+    <div id="a-questions" class="a-page">
+      <div class="a-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="a-card-title" style="margin:0">📝 คำถาม (<span id="q-count">0</span>)</div>
+          <button class="a-btn a-btn-primary a-btn-sm" onclick="openEditor(null)">+ เพิ่ม</button>
+        </div>
+        <div id="q-list"><div class="empty-state">ยังไม่มีคำถาม</div></div>
+      </div>
+    </div>
+
+    <!-- SHARE -->
+    <div id="a-share" class="a-page">
+      <div class="a-card">
+        <div class="a-card-title">🖼️ การ์ดแชร์ 1040×1040</div>
+        <div style="max-width:300px;margin:0 auto 16px">
+          <div class="share-card-dom" id="share-card-dom" style="background:#ff6b9d" onclick="document.getElementById('share-bg-file').click()">
+            <img id="share-bg-img" class="share-card-bg" src="" style="display:none">
+            <div id="share-placeholder" style="color:white;text-align:center;z-index:1;padding:20px">
+              <div style="font-size:40px">🖼️</div>
+              <div style="font-size:13px;margin-top:6px;opacity:.9">คลิกเพื่อเปลี่ยนภาพ</div>
+            </div>
+            <input type="file" id="share-bg-file" accept="image/*" style="display:none" onchange="loadShareBg(event)">
+          </div>
+        </div>
+        <div class="share-link-box" id="share-link-box">🔗 <span id="share-link-text">-</span></div>
+        <div class="a-row">
+          <button class="a-btn a-btn-primary a-flex" onclick="downloadCard()">⬇️ ดาวน์โหลดการ์ด</button>
+          <button class="a-btn a-flex" onclick="copyLink()">📋 คัดลอกลิงค์</button>
+        </div>
+        <button class="a-btn a-btn-block" style="margin-top:8px;justify-content:center" onclick="showQRModal()">📱 สร้าง QR Code</button>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="a-results" class="a-page">
+      <div class="a-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="a-card-title" style="margin:0">📊 ผลลัพธ์</div>
+          <button class="a-btn a-btn-sm" onclick="loadResults()">🔄 รีเฟรช</button>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num" id="r-total">-</div><div class="stat-lbl">ผู้เข้าร่วม</div></div>
+          <div class="stat-box"><div class="stat-num" id="r-perfect">-</div><div class="stat-lbl">ตอบถูกทั้งหมด</div></div>
+        </div>
+        <div class="a-row" id="lb-filter-bar" style="margin-bottom:8px;gap:6px"></div>
+        <div id="lb-list"><div class="empty-state">กดรีเฟรชเพื่อโหลด</div></div>
+      </div>
+    </div>
+
+    <!-- GIFT -->
+    <div id="a-gift" class="a-page">
+      <div class="a-card">
+        <div class="a-card-title">🎁 กล่องของขวัญ</div>
+        <div class="a-row" style="margin-bottom:12px;align-items:flex-end">
+          <div class="a-flex"><label>จำนวนผู้โชคดี</label><input type="number" id="gift-count" value="1" min="1" style="margin:0"></div>
+          <button class="a-btn a-btn-primary" onclick="drawWinners()">🎲 สุ่ม!</button>
+        </div>
+        <div class="gift-outer">
+          <div class="gift-lid">🎁 ผู้ตอบถูกทั้งหมด</div>
+          <div class="gift-body" id="gift-body"><div style="width:100%;text-align:center;color:#92400e;font-size:13px">โหลดผลก่อนนะครับ</div></div>
+        </div>
+        <div id="winner-area" style="margin-top:12px"></div>
+        <button onclick="resetDrawn()" class="a-btn a-btn-sm" style="margin-top:10px;width:100%;justify-content:center;color:#aaa;font-size:12px">🔄 รีเซ็ตเริ่มใหม่ทั้งหมด</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+    <!-- STAFF -->
+    <div id="a-staff" class="a-page">
+      <div class="a-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="a-card-title" style="margin:0">👥 รายชื่อพนักงาน (<span id="staff-count">0</span>)</div>
+          <div class="a-row" style="flex-shrink:0;gap:6px">
+            <button class="a-btn a-btn-primary a-btn-sm" onclick="document.getElementById('staff-import-csv').click()">📄 CSV</button>
+            <button class="a-btn a-btn-primary a-btn-sm" onclick="document.getElementById('staff-import-xlsx').click()">📊 Excel</button>
+          </div>
+          <input type="file" id="staff-import-csv" accept=".csv,.txt" style="display:none" onchange="importStaffCSV(event)">
+          <input type="file" id="staff-import-xlsx" accept=".xlsx,.xls" style="display:none" onchange="importStaffExcel(event)">
+        </div>
+        <div style="font-size:11px;color:#aaa;margin-bottom:10px">📄 CSV: ชื่อ 1 คนต่อบรรทัด &nbsp;|&nbsp; 📊 Excel: ชื่ออยู่คอลัมน์ A (ข้ามแถวหัวตารางได้)</div>
+        <div class="a-row" style="margin-bottom:10px">
+          <input type="text" id="staff-add-input" placeholder="เพิ่มชื่อพนักงาน" style="margin:0;flex:1" onkeydown="if(event.key==='Enter')addStaffOne()">
+          <button class="a-btn a-btn-primary" onclick="addStaffOne()">+ เพิ่ม</button>
+        </div>
+        <div id="staff-list" style="max-height:320px;overflow-y:auto"></div>
+        <div class="a-row" style="margin-top:10px">
+          <button class="a-btn a-btn-success a-flex" onclick="pushStaffToSheet()">💾 บันทึกลง Sheets</button>
+          <button class="a-btn a-btn-danger a-btn-sm" onclick="clearAllStaff()">ล้างทั้งหมด</button>
+        </div>
+        <div id="staff-status" style="font-size:12px;color:#aaa;margin-top:6px;text-align:center"></div>
+      </div>
+    </div>
+
+<!-- EDITOR OVERLAY -->
+<div class="editor-overlay" id="editor-overlay">
+  <div class="editor-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700" id="editor-title">เพิ่มคำถาม</div>
+      <button class="a-btn a-btn-sm" onclick="closeEditor()">✕</button>
+    </div>
+    <label>ข้อความคำถาม</label>
+    <textarea id="ed-text" placeholder="พิมพ์คำถาม..."></textarea>
+    <div class="upload-zone" onclick="document.getElementById('ed-img-file').click()">
+      📷 อัปโหลดรูปประกอบ (ถ้ามี)
+      <input type="file" id="ed-img-file" accept="image/*" style="display:none" onchange="loadEdImg(event)">
+    </div>
+    <div id="ed-img-wrap" style="display:none;margin-bottom:10px">
+      <img id="ed-img-prev" style="width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid #e9ecef">
+      <button class="a-btn a-btn-danger a-btn-sm" style="margin-top:6px" onclick="clearEdImg()">ลบรูป</button>
+    </div>
+    <label>ตัวเลือก (กด ⭐ = คำตอบที่ถูก)</label>
+    <div class="opt-grid" id="opt-grid"></div>
+    <button class="a-btn a-btn-sm" onclick="addOpt()" style="margin-bottom:12px">+ ตัวเลือก</button>
+    <div class="a-row">
+      <button class="a-btn a-btn-success a-flex" onclick="saveEditorQ()">✅ บันทึก</button>
+      <button class="a-btn a-flex" onclick="closeEditor()">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const LETTERS = ['A','B','C','D','E','F'];
+
+// ===== STATE =====
+const S = {
+  questions: [],
+  config: { title:'', expiry:'', timer:30, pin:'1234', gasUrl:'' },
+  players: [],
+  edit: { idx:null, opts:[], correct:0, imgData:null },
+  play: { name:'', answers:[], currentQ:0, timerIv:null, timeLeft:0, answered:false, totalSecs:30 }
+};
+
+// ===== INIT =====
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toLocal(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }
+
+async function gasGet(url, params){
+  const u = new URL(url);
+  // action และ param เล็กๆ ใส่ใน URL เสมอ
+  const action = params.action||'';
+  u.searchParams.set('action', action);
+
+  // ถ้ามี payload ใหญ่ → ส่งผ่าน POST form-encoded แทน GET
+  const payload = params.payload;
+  if(payload !== undefined){
+    const payloadStr = typeof payload==='object' ? JSON.stringify(payload) : String(payload);
+    if(payloadStr.length > 1000){
+      // POST via no-cors workaround: ส่งเป็น form แล้วใช้ Worker รับ
+      const body = new URLSearchParams();
+      body.set('action', action);
+      body.set('payload', payloadStr);
+      const res = await fetch(u.origin + u.pathname, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      });
+      const text = await res.text();
+      try{ return JSON.parse(text); } catch(e){ throw new Error('Response ไม่ใช่ JSON: '+text.slice(0,100)); }
+    }
+    u.searchParams.set('payload', payloadStr);
+  }
+
+  // param อื่นๆ
+  Object.entries(params).forEach(([k,v])=>{
+    if(k==='action'||k==='payload') return;
+    u.searchParams.set(k, typeof v==='object' ? JSON.stringify(v) : String(v));
+  });
+
+  const res = await fetch(u.toString());
+  const text = await res.text();
+  try{ return JSON.parse(text); } catch(e){ throw new Error('Response ไม่ใช่ JSON: '+text.slice(0,100)); }
+}
+
+function loadLocal(){
+  try{
+    const c=localStorage.getItem('qz_config'); if(c) Object.assign(S.config,JSON.parse(c));
+    const q=localStorage.getItem('qz_questions'); if(q) S.questions=JSON.parse(q);
+    const p=localStorage.getItem('qz_players'); if(p) S.players=JSON.parse(p);
+  }catch(e){}
+}
+function saveConfig(){
+  S.config.title=document.getElementById('cfg-title').value;
+  S.config.expiry=document.getElementById('cfg-expiry').value;
+  S.config.timer=parseInt(document.getElementById('cfg-timer').value)||30;
+  S.config.pin=document.getElementById('cfg-pin').value;
+  S.config.gasUrl=document.getElementById('cfg-gas-url').value.trim();
+  localStorage.setItem('qz_config',JSON.stringify(S.config));
+  updateShareLink();
+}
+function saveQuestions(){ localStorage.setItem('qz_questions',JSON.stringify(S.questions)); }
+
+// ===== BOOT =====
+(async function boot(){
+  loadLocal();
+
+  if(IS_PLAYER){
+    document.getElementById('player-app').style.display='block';
+    await bootPlayer();
+  } else {
+    document.getElementById('admin-app').style.display='block';
+    bootAdmin();
+  }
+})();
+
+// ===== PLAYER BOOT =====
+async function bootPlayer(){
+  const gasUrl = S.config.gasUrl || DEFAULT_WORKER_URL;
+
+  // โหลดคำถามจาก Sheets ถ้ามี URL
+  if(gasUrl){
+    try{
+      const d = await gasGet(gasUrl, {action:'getQuiz'});
+      if(d.ok && d.questions && d.questions.length){
+        S.questions = d.questions;
+        if(d.config){
+          if(d.config.title) S.config.title = d.config.title;
+          if(d.config.expiry) S.config.expiry = d.config.expiry;
+          if(d.config.timer) S.config.timer = parseInt(d.config.timer)||30;
+        }
+        saveQuestions();
+      }
+    }catch(e){}
+  }
+
+  await loadUsedNames();
+  await loadStaffFromSheet();
+  document.getElementById('p-loading').style.display='none';
+
+  // ตรวจหมดอายุ
+  if(S.config.expiry){
+    const exp = S.config.expiry;
+    // ถ้าไม่มี Z และไม่มี +offset → เป็น local time ของ admin (ไทย UTC+7)
+    // ถ้ามี Z → เป็น UTC ให้ JS แปลงเอง
+    let expDate;
+    if(exp && !exp.includes('Z') && !exp.includes('+') && exp.length<=19){
+      // local datetime string → แปลงเป็น Date ตาม local timezone
+      expDate = new Date(exp);
+    } else {
+      expDate = new Date(exp);
+    }
+    if(!isNaN(expDate) && expDate < new Date()){
+      document.getElementById('p-expired').style.display='block'; return;
+    }
+  }
+  if(!S.questions.length){
+    document.getElementById('p-expired').innerHTML='<div class="expired-card"><div class="emoji">😕</div><h2>ยังไม่มีคำถาม</h2><p>ติดต่อแอดมินนะครับ</p></div>';
+    document.getElementById('p-expired').style.display='block'; return;
+  }
+
+  document.getElementById('p-quiz-title').textContent = '🎯 '+( S.config.title||'Quiz Time!');
+  document.getElementById('p-name-info').textContent = `${S.questions.length} ข้อ · ${S.config.timer} วินาทีต่อข้อ`;
+  document.getElementById('p-name').style.display='block';
+}
+
+// ===== PLAYER PLAY =====
+async function startPlay(){
+  const name = document.getElementById('p-name-input').value.trim();
+  if(!name){ alert('กรุณาใส่ชื่อก่อนนะ 😊'); return; }
+
+  // ตรวจชื่อซ้ำกับ Sheets ก่อนเริ่ม
+  const btn = document.querySelector('.btn-start');
+  btn.disabled=true;
+  btn.textContent='⏳ กำลังตรวจสอบ...';
+  const url = S.config.gasUrl || DEFAULT_WORKER_URL;
+  if(url){
+    try{
+      const d = await gasGet(url, {action:'checkName', name});
+      if(d.exists){
+        btn.disabled=false;
+        btn.textContent='🚀 เริ่มเลย!';
+        document.getElementById('p-name-input').style.borderColor='#ff4757';
+        // แสดงข้อความแจ้ง
+        let warn = document.getElementById('name-warn');
+        if(!warn){ warn=document.createElement('div'); warn.id='name-warn'; warn.style.cssText='color:#ff4757;font-size:13px;font-weight:600;margin-top:8px'; document.getElementById('p-name-input').after(warn); }
+        warn.textContent='⚠️ ชื่อ "'+name+'" ทำแบบทดสอบไปแล้ว!';
+        return;
+      }
+    }catch(e){ /* ถ้า check ไม่ได้ให้ผ่านไปก่อน */ }
+  }
+  btn.disabled=false;
+  btn.textContent='🚀 เริ่มเลย!';
+
+  const p=S.play;
+  p.name=name; p.answers=[]; p.currentQ=0; p.answered=false;
+  p.totalSecs=parseInt(S.config.timer)||30;
+  document.getElementById('p-nametag').textContent=name;
+  document.getElementById('p-name').style.display='none';
+  document.getElementById('p-quiz').style.display='block';
+  showQ();
+}
+
+function showQ(){
+  const p=S.play, q=S.questions[p.currentQ], total=S.questions.length;
+  p.answered=false;
+  document.getElementById('p-qnum').textContent=`ข้อ ${p.currentQ+1}/${total}`;
+  document.getElementById('p-prog').style.width=`${(p.currentQ/total)*100}%`;
+  if(q.imgData){ document.getElementById('p-q-img').src=q.imgData; document.getElementById('p-q-img').style.display='block'; }
+  else document.getElementById('p-q-img').style.display='none';
+  document.getElementById('p-q-text').textContent=q.text;
+  document.getElementById('p-opts').innerHTML=q.options.map((o,i)=>`
+    <button class="opt-btn" id="opt-${i}" onclick="pickAns(${i})">
+      <span class="opt-letter">${LETTERS[i]}</span>${esc(o)}
+    </button>`).join('');
+  startTimer();
+}
+
+const CIRC=188.5;
+function startTimer(){
+  clearInterval(S.play.timerIv);
+  const p=S.play; p.timeLeft=p.totalSecs;
+  const numEl=document.getElementById('p-timer-num');
+  const circle=document.getElementById('p-timer-circle');
+  numEl.textContent=p.timeLeft;
+  circle.classList.remove('urgent');
+  S.play.timerIv=setInterval(()=>{
+    p.timeLeft--;
+    numEl.textContent=p.timeLeft;
+    if(p.timeLeft<=5) circle.classList.add('urgent');
+    if(p.timeLeft<=0){ clearInterval(p.timerIv); autoAdv(); }
+  },1000);
+}
+
+function showWrongBalloon(cb){
+  const el=document.createElement('div');
+  el.className='wrong-balloon';
+  el.innerHTML=`
+    <div class="balloon-box">
+      <div class="balloon-emoji">😱</div>
+      <div class="balloon-text">ว้าย!...ผิด</div>
+      <div class="balloon-sub">ไม่เป็นไร ครั้งหน้าทำได้!</div>
+    </div>`;
+  document.body.appendChild(el);
+  // เสียงโอ๊ะ
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type='sawtooth';
+    o.frequency.setValueAtTime(400,ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(150,ctx.currentTime+0.4);
+    g.gain.setValueAtTime(0.25,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.5);
+    o.start(ctx.currentTime);o.stop(ctx.currentTime+0.5);
+  }catch(e){}
+  setTimeout(()=>{
+    el.style.animation='fadeInBg .2s ease reverse';
+    setTimeout(()=>{ el.remove(); cb(); },200);
+  },1400);
+}
+
+function pickAns(i){
+  if(S.play.answered) return;
+  S.play.answered=true;
+  clearInterval(S.play.timerIv);
+  const correct=S.questions[S.play.currentQ].correct;
+  const isCorrect=i===correct;
+  S.play.answers.push({qIdx:S.play.currentQ,selected:i,correct:isCorrect});
+  document.querySelectorAll('.opt-btn').forEach((b,idx)=>{
+    b.disabled=true;
+    if(idx===correct) b.classList.add('correct');
+    else if(idx===i&&!isCorrect) b.classList.add('wrong');
+  });
+  if(!isCorrect){
+    showWrongBalloon(()=>nextQ());
+  } else {
+    setTimeout(nextQ,1000);
+  }
+}
+
+function autoAdv(){
+  if(!S.play.answered){
+    S.play.answers.push({qIdx:S.play.currentQ,selected:-1,correct:false});
+    nextQ();
+  }
+}
+function nextQ(){ S.play.currentQ++; if(S.play.currentQ>=S.questions.length) finishPlay(); else showQ(); }
+
+async function finishPlay(){
+  clearInterval(S.play.timerIv);
+  const p=S.play, total=S.questions.length;
+  const correctCount=p.answers.filter(a=>a.correct).length;
+  const isPerfect=correctCount===total;
+  document.getElementById('p-quiz').style.display='none';
+  document.getElementById('p-done').style.display='block';
+  document.getElementById('p-done-emoji').textContent=isPerfect?'🏆':correctCount>total/2?'😊':'😅';
+  document.getElementById('p-done-title').textContent=isPerfect?'เก่งมาก! ถูกทั้งหมด!':`ตอบถูก ${correctCount}/${total} ข้อ`;
+  document.getElementById('p-done-sub').textContent=`คุณ${p.name} ทำได้ ${correctCount} จาก ${total} ข้อ`;
+  document.getElementById('p-chips').innerHTML=p.answers.map((a,i)=>`<div class="chip ${a.correct?'ok':'no'}">ข้อ${i+1} ${a.correct?'✅':'❌'}</div>`).join('');
+  const rec={name:p.name,answers:p.answers,correctCount,totalQ:total,timestamp:Date.now()};
+  document.getElementById('p-saving').style.display='block';
+  document.getElementById('p-saved').style.display='none';
+  await sendResponse(rec);
+}
+
+async function sendResponse(rec){
+  const url=S.config.gasUrl||DEFAULT_WORKER_URL;
+  if(!url){
+    document.getElementById('p-saving').style.display='none';
+    document.getElementById('p-saved').style.display='block';
+    document.getElementById('p-saved').textContent='(ยังไม่ได้ตั้งค่า Sheets)';
+    return;
+  }
+  try{
+    const sd = selectedPlayerData||{};
+    const payload={name:rec.name,correctCount:rec.correctCount,totalQ:rec.totalQ,answers:rec.answers.map(a=>a.correct?1:0),timestamp:new Date().toLocaleString('th-TH'),empId:sd.id||'',dept:sd.dept||'',position:sd.position||'',branch:sd.branch||''};
+    const d=await gasGet(url,{action:'saveResponse',payload});
+    document.getElementById('p-saving').style.display='none';
+    document.getElementById('p-saved').style.display='block';
+    if(d.duplicate){
+      document.getElementById('p-done-emoji').textContent='⚠️';
+      document.getElementById('p-done-title').textContent='ส่งไปแล้วนะ!';
+      document.getElementById('p-done-sub').textContent='ชื่อ "'+rec.name+'" ถูกบันทึกไว้แล้ว 😊';
+      document.getElementById('p-saved').textContent='ชื่อนี้ทำแบบทดสอบไปแล้ว';
+    } else {
+      document.getElementById('p-saved').textContent=d.ok?'✅ บันทึกแล้ว!':'⚠️ '+d.error;
+    }
+  }catch(e){
+    document.getElementById('p-saving').style.display='none';
+    document.getElementById('p-saved').style.display='block';
+    document.getElementById('p-saved').textContent='⚠️ บันทึกไม่ได้ (บันทึกในเครื่องแล้ว)';
+  }
+}
+
+// ===== ADMIN BOOT =====
+function bootAdmin(){
+  document.getElementById('cfg-title').value=S.config.title||'';
+  document.getElementById('cfg-expiry').value=S.config.expiry||'';
+  document.getElementById('cfg-timer').value=S.config.timer||30;
+  document.getElementById('cfg-pin').value=S.config.pin||'';
+  document.getElementById('cfg-gas-url').value=S.config.gasUrl||'';
+  if(!S.config.expiry){
+    const d=new Date(); d.setDate(d.getDate()+7);
+    document.getElementById('cfg-expiry').value=toLocal(d);
+    S.config.expiry=toLocal(d);
+  }
+  renderQList();
+  updateShareLink();
+  renderStaffList();
+  loadStaffFromSheet();
+}
+
+// ===== ADMIN TABS =====
+function aTab(id,btn){
+  document.querySelectorAll('.a-page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('a-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='results') loadResults();
+  if(id==='gift') loadResults();
+}
+
+// ===== QUESTIONS =====
+function renderQList(){
+  document.getElementById('q-count').textContent=S.questions.length;
+  const el=document.getElementById('q-list');
+  if(!S.questions.length){el.innerHTML='<div class="empty-state">ยังไม่มีคำถาม</div>';return;}
+  el.innerHTML=S.questions.map((q,i)=>`
+    <div class="q-item">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:13px;font-weight:700">ข้อ ${i+1}: ${esc(q.text.slice(0,55))}${q.text.length>55?'…':''}</div>
+          <div style="font-size:11px;color:#aaa;margin-top:2px">${q.options.length} ตัวเลือก · ถูก: <b style="color:#00a846">${esc(q.options[q.correct]||'-')}</b>${q.imgData?' · 🖼️':''}</div>
+        </div>
+        <div class="a-row" style="flex-shrink:0">
+          <button class="a-btn a-btn-sm" onclick="openEditor(${i})">✏️</button>
+          <button class="a-btn a-btn-danger a-btn-sm" onclick="deleteQ(${i})">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openEditor(idx){
+  const e=S.edit;
+  e.idx=idx;
+  if(idx!==null){ const q=S.questions[idx]; e.opts=[...q.options]; e.correct=q.correct; e.imgData=q.imgData||null; document.getElementById('ed-text').value=q.text; document.getElementById('editor-title').textContent=`แก้ไขข้อ ${idx+1}`; }
+  else { e.opts=['','','','']; e.correct=0; e.imgData=null; document.getElementById('ed-text').value=''; document.getElementById('editor-title').textContent='เพิ่มคำถาม'; }
+  if(e.imgData){document.getElementById('ed-img-prev').src=e.imgData;document.getElementById('ed-img-wrap').style.display='block';}
+  else document.getElementById('ed-img-wrap').style.display='none';
+  renderOptGrid();
+  document.getElementById('editor-overlay').style.display='block';
+}
+function closeEditor(){document.getElementById('editor-overlay').style.display='none';}
+function renderOptGrid(){
+  document.getElementById('opt-grid').innerHTML=S.edit.opts.map((o,i)=>`
+    <div class="opt-wrap">
+      <input type="text" placeholder="ตัวเลือก ${LETTERS[i]}" value="${esc(o)}" oninput="S.edit.opts[${i}]=this.value" style="margin:0;padding-right:32px">
+      <span class="opt-star" onclick="S.edit.correct=${i};renderOptGrid()">${S.edit.correct===i?'⭐':'☆'}</span>
+    </div>`).join('');
+}
+function addOpt(){if(S.edit.opts.length<6){S.edit.opts.push('');renderOptGrid();}}
+function loadEdImg(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{S.edit.imgData=ev.target.result;document.getElementById('ed-img-prev').src=ev.target.result;document.getElementById('ed-img-wrap').style.display='block';};r.readAsDataURL(f);}
+function clearEdImg(){S.edit.imgData=null;document.getElementById('ed-img-wrap').style.display='none';}
+function saveEditorQ(){
+  const text=document.getElementById('ed-text').value.trim();
+  if(!text){alert('กรุณาใส่ข้อความคำถาม');return;}
+  const opts=S.edit.opts.filter(o=>o.trim());
+  if(opts.length<2){alert('ต้องมีตัวเลือกอย่างน้อย 2 ข้อ');return;}
+  const q={text,options:opts,correct:Math.min(S.edit.correct,opts.length-1),imgData:S.edit.imgData||null};
+  if(S.edit.idx!==null) S.questions[S.edit.idx]=q; else S.questions.push(q);
+  saveQuestions();renderQList();closeEditor();
+}
+function deleteQ(i){if(confirm('ลบข้อนี้?')){S.questions.splice(i,1);saveQuestions();renderQList();}}
+
+// ===== PUSH TO SHEETS =====
+async function pushToSheet(){
+  const url=S.config.gasUrl||DEFAULT_WORKER_URL;
+  if(!url){alert('กรุณาใส่ Worker URL ในตั้งค่า');return;}
+  const el=document.getElementById('push-status');
+  el.innerHTML='<div class="dots"><span></span><span></span><span></span></div>';
+  try{
+    const quiz={title:S.config.title,expiry:S.config.expiry,timer:S.config.timer,questions:S.questions.map(q=>({text:q.text,options:q.options,correct:q.correct,hasImg:!!q.imgData}))};
+    const d=await gasGet(url,{action:'saveQuiz',payload:quiz});
+    el.textContent=d.ok?'✅ บันทึกสำเร็จ!':'❌ '+d.error;
+  }catch(e){el.textContent='❌ '+e.message;}
+}
+
+// ===== SHARE =====
+function loadShareBg(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=document.getElementById('share-bg-img');img.src=ev.target.result;img.style.display='block';document.getElementById('share-placeholder').style.display='none';};r.readAsDataURL(f);}
+function updateShareLink(){
+  const base=window.location.origin+window.location.pathname.replace('index.html','');
+  const url=base+'?play=1';
+  document.getElementById('share-link-text').textContent=url;
+}
+function copyLink(){navigator.clipboard.writeText(document.getElementById('share-link-text').textContent).then(()=>alert('คัดลอกแล้ว!'));}
+async function downloadCard(){
+  const dom=document.getElementById('share-card-dom');
+  const ow=dom.style.width,oh=dom.style.height;
+  dom.style.width='1040px';dom.style.height='1040px';
+  try{
+    const canvas=await html2canvas(dom,{width:1040,height:1040,scale:1,useCORS:true});
+    const a=document.createElement('a');a.download='quiz-card.png';a.href=canvas.toDataURL('image/png');a.click();
+  }catch(e){alert('เกิดข้อผิดพลาด: '+e.message);}
+  dom.style.width=ow;dom.style.height=oh;
+}
+
+// ===== RESULTS =====
+async function loadResults(){
+  const url=S.config.gasUrl||DEFAULT_WORKER_URL;
+  if(!url){renderLB(S.players);return;}
+  document.getElementById('lb-list').innerHTML='<div style="text-align:center;padding:16px"><div class="dots"><span></span><span></span><span></span></div></div>';
+  try{const d=await gasGet(url,{action:'getResults'});if(d.ok&&d.players){S.players=d.players;localStorage.setItem('qz_players',JSON.stringify(S.players));}}catch(e){}
+  renderLB(S.players);
+}
+function renderLB(players, filterBranch, filterDept){
+  document.getElementById('r-total').textContent=players.length;
+  document.getElementById('r-perfect').textContent=players.filter(p=>p.correctCount===p.totalQ).length;
+
+  // สร้าง dropdown กรองสาขา/แผนก
+  const branches=[...new Set(players.map(p=>p.branch||'').filter(Boolean))].sort();
+  const depts=[...new Set(players.map(p=>p.dept||'').filter(Boolean))].sort();
+  const filterBar = document.getElementById('lb-filter-bar');
+  if(filterBar){
+    filterBar.innerHTML=`
+      <select onchange="applyLBFilter()" id="lb-branch-filter" style="flex:1;margin:0;font-size:12px">
+        <option value="">ทุกสาขา</option>
+        ${branches.map(b=>`<option value="${esc(b)}" ${filterBranch===b?'selected':''}>${esc(b)}</option>`).join('')}
+      </select>
+      <select onchange="applyLBFilter()" id="lb-dept-filter" style="flex:1;margin:0;font-size:12px">
+        <option value="">ทุกแผนก</option>
+        ${depts.map(d=>`<option value="${esc(d)}" ${filterDept===d?'selected':''}>${esc(d)}</option>`).join('')}
+      </select>`;
+  }
+
+  // กรอง
+  let filtered = players;
+  if(filterBranch) filtered = filtered.filter(p=>p.branch===filterBranch);
+  if(filterDept)   filtered = filtered.filter(p=>p.dept===filterDept);
+
+  if(!filtered.length){document.getElementById('lb-list').innerHTML='<div class="empty-state">ไม่มีข้อมูล</div>';renderGift();return;}
+  const sorted=[...filtered].sort((a,b)=>b.correctCount-a.correctCount);
+  document.getElementById('lb-list').innerHTML=sorted.map((p,i)=>`
+    <div class="lb-row ${i===0&&p.correctCount===p.totalQ?'gold':''}">
+      <div style="font-weight:700;color:#aaa;width:24px">${i+1}</div>
+      <div style="flex:1">
+        <div style="font-weight:600">${esc(p.name)}</div>
+        <div style="font-size:11px;color:#aaa">
+          ${p.branch?`<span style="background:#eff6ff;color:#1e40af;padding:1px 6px;border-radius:4px;margin-right:4px">${esc(p.branch)}</span>`:''}
+          ${p.dept?`<span style="background:#f0fdf4;color:#166534;padding:1px 6px;border-radius:4px;margin-right:4px">${esc(p.dept)}</span>`:''}
+          ${p.answers?p.answers.map((a,qi)=>`ข้อ${qi+1}:${a.correct?'✅':'❌'}`).join(' '):''}
+        </div>
+      </div>
+      <span class="badge ${p.correctCount===p.totalQ?'badge-green':'badge-amber'}">${p.correctCount}/${p.totalQ}</span>
+    </div>`).join('');
+  renderGift();
+}
+
+// ===== GIFT =====
+function showWinnerModal(sel, count){
+  // ลบ modal เก่าถ้ามี
+  document.querySelectorAll('.winner-modal,.confetti-wrap').forEach(e=>e.remove());
+
+  // สร้าง confetti
+  const confettiEl = document.createElement('div');
+  confettiEl.className = 'confetti-wrap';
+  const colors = ['#ff6b9d','#c44dff','#ffab40','#00c853','#1a56db','#ff4757'];
+  for(let i=0;i<60;i++){
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.cssText = `
+      left:${Math.random()*100}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+      animation-duration:${2+Math.random()*2}s;
+      animation-delay:${Math.random()*0.5}s;
+    `;
+    confettiEl.appendChild(p);
+  }
+  document.body.appendChild(confettiEl);
+  setTimeout(()=>confettiEl.remove(), 4000);
+
+  // สร้าง modal
+  const modal = document.createElement('div');
+  modal.className = 'winner-modal';
+  modal.innerHTML = `
+    <div class="winner-modal-box">
+      <button class="winner-modal-close" onclick="closeWinnerModal()">✕</button>
+      <div style="font-size:52px;margin-bottom:6px">🏆</div>
+      <div style="font-size:13px;color:#aaa;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">ผู้โชคดี ${count} ท่าน</div>
+      ${sel.map(x=>`<div class="winner-name" style="animation:winnerPop .4s ease both">🎉 ${esc(staffName(x.name)||x.name)}</div>`).join('')}
+      <div class="winner-contact" style="margin:12px 0 16px">ติดต่อรับของรางวัลได้ที่ Training นะจ๊ะ</div>
+      <button onclick="closeWinnerModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,#ff6b9d,#c44dff);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">
+        ✅ รับทราบ / สุ่มต่อ
+      </button>
+
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function closeWinnerModal(){
+  document.querySelectorAll('.winner-modal').forEach(e=>e.remove());
+}
+
+function resetDrawn(){
+  if(confirm('รีเซ็ตรายชื่อผู้ได้รางวัลทั้งหมด? ทุกคนจะกลับมาในกล่องอีกครั้ง')){
+    drawnWinners=[];
+    renderGift();
+    closeWinnerModal();
+  }
+}
+
+function applyLBFilter(){
+  const branch = document.getElementById('lb-branch-filter')?.value||'';
+  const dept   = document.getElementById('lb-dept-filter')?.value||'';
+  renderLB(S.players, branch, dept);
+}
+
+function renderGift(){
+  const w=S.players.filter(p=>p.correctCount===p.totalQ);
+  const body=document.getElementById('gift-body');
+  if(!w.length){body.innerHTML='<div style="width:100%;text-align:center;color:#92400e;font-size:13px">ยังไม่มีผู้ตอบถูกทั้งหมด</div>';return;}
+  const remaining=w.filter(x=>!drawnWinners.includes(x.name));
+  if(!remaining.length){
+    body.style.position='';body.style.width='';body.style.height='';
+    body.innerHTML='<div style="width:100%;text-align:center;color:#92400e;font-size:13px">🎉 ทุกคนได้รางวัลแล้ว!</div>';
+    return;
+  }
+  // รีเซ็ต position เฉพาะรอบแรก (ยังไม่เคยสุ่ม)
+  const existingChips=body.querySelectorAll('.name-chip');
+  const existingNames=Array.from(existingChips).map(c=>c.textContent.trim());
+  const newNames=remaining.map(x=>staffName(x.name)||x.name);
+  const needRebuild=newNames.some(n=>!existingNames.includes(n))||existingNames.some(n=>!newNames.includes(n));
+  if(needRebuild){
+    // สร้างใหม่เฉพาะเมื่อจำเป็น — รีเซ็ต position ใหม่
+    body.style.position='';body.style.width='';body.style.height='';
+    body.innerHTML=remaining.map(x=>`<div class="name-chip">${esc(staffName(x.name)||x.name)}</div>`).join('');
+  }
+}
+function playSound(type){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    if(type==='tick'){
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=300+Math.random()*700;o.type='sine';
+      g.gain.setValueAtTime(0.1,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.07);
+      o.start(ctx.currentTime);o.stop(ctx.currentTime+0.07);
+    } else if(type==='winner'){
+      [523,659,784,1047].forEach((freq,i)=>{
+        const o=ctx.createOscillator(),g=ctx.createGain();
+        o.connect(g);g.connect(ctx.destination);
+        o.frequency.value=freq;o.type='triangle';
+        const t=ctx.currentTime+i*0.13;
+        g.gain.setValueAtTime(0,t);
+        g.gain.linearRampToValueAtTime(0.3,t+0.05);
+        g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+        o.start(t);o.stop(t+0.4);
       });
     }
-    const p = { action, payload, name };
-    let result;
-    if      (action === 'saveQuiz')     result = saveQuiz(p);
-    else if (action === 'saveResponse') result = saveResponse(p);
-    else if (action === 'saveStaff')    result = saveStaff(p);
-    else return respond({ ok: false, error: 'Unknown action: ' + action }, '');
-    return respond({ ok: true, ...result }, '');
-  } catch(ex) {
-    return respond({ ok: false, error: ex.message }, '');
-  }
+  }catch(e){}
 }
 
-function doGet(e) {
-  const p = e.parameter;
-  const action = p.action || '';
-  const cb = p.callback || '';   // JSONP callback name
-  try {
-    let result;
-    if      (action === 'saveQuiz')     result = saveQuiz(p);
-    else if (action === 'saveResponse') result = saveResponse(p);
-    else if (action === 'getResults')   result = getResults();
-    else if (action === 'getQuiz')      result = getQuiz();
-    else if (action === 'checkName')    result = checkName(p.name);
-    else if (action === 'saveStaff')    result = saveStaff(p);
-    else if (action === 'getStaff')     result = getStaff();
-    else return respond({ ok: false, error: 'Unknown action: ' + action }, cb);
-    return respond({ ok: true, ...result }, cb);
-  } catch(ex) {
-    return respond({ ok: false, error: ex.message }, cb);
-  }
-}
+function drawWinners(){
+  const w=S.players.filter(p=>p.correctCount===p.totalQ);
+  if(!w.length){alert('ยังไม่มีผู้ตอบถูกทั้งหมด');return;}
+  const remaining=w.filter(x=>!drawnWinners.includes(x.name));
+  if(!remaining.length){alert('ทุกคนได้รางวัลแล้ว! กด รีเซ็ต เพื่อเริ่มใหม่');return;}
+  const count=Math.min(parseInt(document.getElementById('gift-count').value)||1,remaining.length);
 
-function respond(obj, callback) {
-  const json = JSON.stringify(obj);
-  // ถ้ามี callback parameter ให้ตอบแบบ JSONP (browser script-tag)
-  if (callback) {
-    return ContentService
-      .createTextOutput(callback + '(' + json + ')')
-      .setMimeType(ContentService.MimeType.JAVASCRIPT);
-  }
-  return ContentService
-    .createTextOutput(json)
-    .setMimeType(ContentService.MimeType.JSON);
-}
+  const giftBody=document.getElementById('gift-body');
+  const chips=Array.from(giftBody.querySelectorAll('.name-chip'));
+  if(!chips.length){alert('ยังไม่มีรายชื่อในกล่อง');return;}
 
-// ============================================================
-//  SAVE QUIZ CONFIG + QUESTIONS
-//  รับ: action=saveQuiz&payload=<JSON encoded>
-// ============================================================
+  // ล็อคขนาดกล่องให้คงที่ตลอด — ใช้ค่าตอนนี้
+  const W=giftBody.offsetWidth||300;
+  const H=giftBody.offsetHeight||160;
+  giftBody.style.position='relative';
+  giftBody.style.width=W+'px';
+  giftBody.style.height=H+'px';
+  giftBody.style.overflow='hidden';
 
-function saveQuiz(p) {
-  let quiz;
-  try {
-    let raw = p.payload || '';
-    for(let i=0; i<4; i++){
-      try { const parsed = JSON.parse(raw); quiz = parsed; break; } catch(e){}
-      try { raw = decodeURIComponent(raw); } catch(e){ break; }
+  // ถ้าชื่อยังไม่มี position (รอบแรก) → วางตำแหน่งเริ่มต้น
+  chips.forEach((c,i)=>{
+    if(!c.dataset.px){
+      // กระจายทั่วกล่อง
+      const cols=Math.ceil(Math.sqrt(chips.length));
+      const col=i%cols, row=Math.floor(i/cols);
+      const startX=Math.min((col/cols)*(W-90)+8, W-90);
+      const startY=Math.min(row*36+8, H-32);
+      c.dataset.px=startX;
+      c.dataset.py=startY;
     }
-    if(!quiz) quiz = JSON.parse(raw);
-  } catch(e) {
-    return { ok: false, error: 'parse quiz payload ไม่ได้: ' + e.message };
-  }
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-
-  // QuizConfig sheet
-  let cfgSheet = ss.getSheetByName(SHEET_QUIZ) || ss.insertSheet(SHEET_QUIZ);
-  cfgSheet.clearContents();
-  cfgSheet.appendRow(['key', 'value']);
-  cfgSheet.appendRow(['title',   quiz.title]);
-  cfgSheet.appendRow(['expiry',  String(quiz.expiry||'')]);
-  cfgSheet.appendRow(['timer',   quiz.timer]);
-  cfgSheet.appendRow(['updated', new Date().toLocaleString('th-TH')]);
-  styleHeader(cfgSheet);
-
-  // Questions sheet
-  let qSheet = ss.getSheetByName(SHEET_QUESTIONS) || ss.insertSheet(SHEET_QUESTIONS);
-  qSheet.clearContents();
-  qSheet.appendRow(['#','คำถาม','ตัวเลือก A','ตัวเลือก B','ตัวเลือก C','ตัวเลือก D','ตัวเลือก E','ตัวเลือก F','เฉลย (index)','เฉลย (ข้อความ)','มีรูป']);
-  styleHeader(qSheet);
-  quiz.questions.forEach((q, i) => {
-    qSheet.appendRow([
-      i+1, q.text,
-      q.options[0]||'', q.options[1]||'', q.options[2]||'',
-      q.options[3]||'', q.options[4]||'', q.options[5]||'',
-      q.correct, q.options[q.correct]||'', q.hasImg ? 'มี' : '-'
-    ]);
+    c.style.position='absolute';
+    c.style.left=c.dataset.px+'px';
+    c.style.top=c.dataset.py+'px';
+    c.style.transition='none';
+    c.style.whiteSpace='nowrap';
   });
 
-  return { message: 'บันทึกสำเร็จ', questions: quiz.questions.length };
+  // physics — ต่อจากตำแหน่งปัจจุบัน เพิ่ม velocity ใหม่
+  const physics=chips.map(c=>({
+    x:parseFloat(c.dataset.px)||0,
+    y:parseFloat(c.dataset.py)||0,
+    vx:(Math.random()-0.5)*32,
+    vy:(Math.random()-0.5)*26,
+    rot:parseFloat(c.dataset.rot)||0,
+    vr:(Math.random()-0.5)*16
+  }));
+
+  const totalMs=5000;
+  const start=Date.now();
+  let lastTick=0;
+  let animRunning=true;
+
+  function tick(){
+    if(!animRunning) return;
+    const elapsed=Date.now()-start;
+    const progress=elapsed/totalMs;
+    const energy=progress<0.65?1:Math.max(0,1-(progress-0.65)/0.35);
+
+    const tickInterval=progress<0.6?40:40+(progress-0.6)/0.4*340;
+    if(elapsed-lastTick>tickInterval){lastTick=elapsed;playSound('tick');}
+
+    chips.forEach((c,i)=>{
+      const p=physics[i];
+      const cw=c.offsetWidth||80;
+      const ch=c.offsetHeight||30;
+      const maxX=W-cw-4;
+      const maxY=H-ch-4;
+
+      p.vx*=0.991;
+      p.vy*=0.991;
+      p.x+=p.vx*energy;
+      p.y+=p.vy*energy;
+      p.rot+=p.vr*energy;
+
+      if(p.x>maxX){p.x=maxX;p.vx*=-0.88;playSound('tick');}
+      if(p.x<4){p.x=4;p.vx*=-0.88;playSound('tick');}
+      if(p.y>maxY){p.y=maxY;p.vy*=-0.88;}
+      if(p.y<4){p.y=4;p.vy*=-0.88;}
+
+      // kick ถ้านิ่งเกินในช่วง energy สูง
+      if(energy>0.5&&Math.abs(p.vx)<4&&Math.abs(p.vy)<4){
+        p.vx=(Math.random()-0.5)*24;
+        p.vy=(Math.random()-0.5)*20;
+      }
+
+      const sc=1+energy*0.22*Math.abs(Math.sin(elapsed/45+i*1.9));
+      const hue=(elapsed/8+i*47)%360;
+      c.style.background=energy>0.05?`hsl(${hue},90%,82%)`:'white';
+      c.style.left=p.x+'px';
+      c.style.top=p.y+'px';
+      c.style.transform=`rotate(${p.rot}deg) scale(${sc})`;
+    });
+
+    if(elapsed<totalMs){
+      requestAnimationFrame(tick);
+    } else {
+      animRunning=false;
+      // บันทึกตำแหน่งสุดท้ายไว้ ไม่ reset
+      chips.forEach((c,i)=>{
+        const p=physics[i];
+        c.dataset.px=p.x;
+        c.dataset.py=p.y;
+        c.dataset.rot=p.rot;
+        c.style.transform=`rotate(${p.rot}deg)`;
+        c.style.background='white';
+      });
+
+      // สุ่มผู้โชคดี
+      const sel=[...remaining].sort(()=>Math.random()-.5).slice(0,count);
+      sel.forEach(x=>{if(!drawnWinners.includes(x.name))drawnWinners.push(x.name);});
+
+      playSound('winner');
+      setTimeout(()=>{
+        // ลบชื่อที่ได้รางวัลออกจากกล่อง (fade out)
+        chips.forEach(c=>{
+          const name=c.textContent.trim();
+          if(drawnWinners.includes(name)){
+            c.style.transition='opacity .4s ease';
+            c.style.opacity='0';
+            setTimeout(()=>c.remove(),400);
+          }
+        });
+        showWinnerModal(sel,count);
+      },300);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+function getStaff(){ try{ return JSON.parse(localStorage.getItem('qz_staff')||'[]'); }catch(e){ return []; } }
+function saveStaff(list){ localStorage.setItem('qz_staff', JSON.stringify(list)); }
+// helper: ได้ชื่อเต็มจาก staff object
+function staffName(s){ const n = typeof s==='string' ? s : (s.name||''); return n.replace(/\+/g,' ').replace(/\s+/g,' ').trim(); }
+
+function renderStaffList(){
+  const list = getStaff();
+  document.getElementById('staff-count').textContent = list.length;
+  const el = document.getElementById('staff-list');
+  if(!list.length){ el.innerHTML='<div class="empty-state">ยังไม่มีรายชื่อ</div>'; return; }
+  el.innerHTML = list.map((s,i)=>{
+    const name = staffName(s);
+    const meta = typeof s==='object' ? [s.dept,s.position,s.branch].filter(Boolean).join(' · ') : '';
+    return `<div class="lb-row" style="padding:8px 12px">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${esc(name)}</div>
+        ${meta?`<div style="font-size:11px;color:#aaa">${esc(meta)}</div>`:''}
+      </div>
+      <button class="a-btn a-btn-danger a-btn-sm" onclick="deleteStaff(${i})">✕</button>
+    </div>`;
+  }).join('');
 }
 
-// ============================================================
-//  SAVE RESPONSE (คำตอบผู้เล่น)
-//  รับ: action=saveResponse&payload=<JSON encoded>
-// ============================================================
-
-function saveResponse(p) {
-  let data;
-  try {
-    let raw = p.payload || '';
-    for(let i=0; i<4; i++){
-      try { const parsed = JSON.parse(raw); data = parsed; break; } catch(e){}
-      try { raw = decodeURIComponent(raw); } catch(e){ break; }
-    }
-    if(!data) data = JSON.parse(raw);
-  } catch(e) {
-    return { ok: false, error: 'parse payload ไม่ได้: ' + e.message + ' raw=' + String(p.payload).slice(0,80) };
-  }
-  // Force parse เป็น number
-  data.correctCount = parseInt(data.correctCount) || 0;
-  data.totalQ = parseInt(data.totalQ) || 0;
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  let rSheet = ss.getSheetByName(SHEET_RESPONSES);
-
-  const needHeader = !rSheet || rSheet.getLastRow() === 0;
-  if (!rSheet) rSheet = ss.insertSheet(SHEET_RESPONSES);
-
-  if (needHeader) {
-    const header = ['วันเวลา','ชื่อ','ผล','คะแนน'];
-    (data.answers || []).forEach((_,i) => header.push('ข้อ '+(i+1)));
-    rSheet.appendRow(header);
-    styleHeader(rSheet);
-  }
-
-  // ตรวจชื่อซ้ำ
-  if (rSheet.getLastRow() >= 2) {
-    const names = rSheet.getRange(2, 2, rSheet.getLastRow()-1, 1).getValues().map(r => String(r[0]).trim().toLowerCase());
-    if (names.indexOf(String(data.name).trim().toLowerCase()) > -1) {
-      return { message: 'ชื่อนี้ทำแบบทดสอบไปแล้ว', duplicate: true };
-    }
-  }
-
-  const row = [
-    data.timestamp || new Date().toLocaleString('th-TH'),
-    data.name,
-    data.correctCount === data.totalQ ? '✅ ถูกทั้งหมด' : '❌ ไม่ครบ',
-    data.correctCount + '/' + data.totalQ,
-    ...(data.answers || []).map(a => a === 1 ? '✅' : '❌')
-  ];
-  rSheet.appendRow(row);
-
-  const lastRow = rSheet.getLastRow();
-  const bg = data.correctCount === data.totalQ ? '#d1fae5' : '#fee2e2';
-  rSheet.getRange(lastRow, 1, 1, rSheet.getLastColumn()).setBackground(bg);
-
-  try { rSheet.autoResizeColumns(1, rSheet.getLastColumn()); } catch(e){}
-
-  return { message: 'บันทึกสำเร็จ', name: data.name };
+function addStaffOne(){
+  const inp = document.getElementById('staff-add-input');
+  const name = inp.value.trim();
+  if(!name) return;
+  const list = getStaff();
+  if(!list.some(s=>staffName(s)===name)){ list.push({id:'',name,dept:'',position:'',branch:''}); saveStaff(list); }
+  inp.value='';
+  renderStaffList();
 }
 
-// ============================================================
-//  GET QUIZ (คำถาม + config สำหรับผู้เล่น)
-// ============================================================
+function deleteStaff(i){
+  const list = getStaff(); list.splice(i,1); saveStaff(list); renderStaffList();
+}
 
-function getQuiz() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  var config = {};
-  var cfgSheet = ss.getSheetByName(SHEET_QUIZ);
-  if (cfgSheet) {
-    cfgSheet.getDataRange().getValues().slice(1).forEach(function(r){
-      if(r[0]){
-        var val = r[1];
-        // ถ้า Sheets แปลง expiry เป็น Date object ให้แปลงกลับเป็น local string UTC+7
-        if(val instanceof Date){
-          var local = new Date(val.getTime() + 7*60*60000);
-          val = local.toISOString().slice(0,16);
-        }
-        config[r[0]] = val;
+function clearAllStaff(){
+  if(confirm('ล้างรายชื่อพนักงานทั้งหมด?')){ saveStaff([]); renderStaffList(); }
+}
+
+function importStaffExcel(e){
+  const f = e.target.files[0]; if(!f) return;
+  const statusEl = document.getElementById('staff-status');
+  statusEl.textContent = '⏳ กำลังอ่านไฟล์ Excel...';
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const data = new Uint8Array(ev.target.result);
+      // parse xlsx ด้วย SheetJS (โหลดจาก CDN)
+      if(typeof XLSX === 'undefined'){
+        statusEl.textContent = '⏳ กำลังโหลด SheetJS...';
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        script.onload = function(){ parseXLSX(data, f.name, statusEl); };
+        script.onerror = function(){ statusEl.textContent = '❌ โหลด SheetJS ไม่ได้ ลองใช้ CSV แทน'; };
+        document.head.appendChild(script);
+      } else {
+        parseXLSX(data, f.name, statusEl);
+      }
+    }catch(err){ statusEl.textContent = '❌ '+err.message; }
+  };
+  reader.readAsArrayBuffer(f);
+  e.target.value = '';
+}
+
+function parseXLSX(data, filename, statusEl){
+  try{
+    const wb = XLSX.read(data, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]]; // sheet แรก
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+    // เอาคอลัมน์ A ทุกแถว กรอง header และแถวว่าง
+    const names = [];
+    rows.forEach(function(row, i){
+      const colA = String(row[0]||'').trim(); // รหัสพนักงาน
+      const colB = String(row[1]||'').trim(); // ชื่อ
+      const colC = String(row[2]||'').trim(); // นามสกุล
+      const colD = String(row[3]||'').trim(); // แผนก
+      const colE = String(row[4]||'').trim(); // ตำแหน่ง
+      const colF = String(row[5]||'').trim(); // สาขา
+
+      // ข้ามแถว header
+      if(i===0 && (colA==='รหัสพนักงาน'||colA==='id'||colA==='ID'||colB==='ชื่อ'||colB==='name')) return;
+      if(!colB && !colA) return; // แถวว่าง
+
+      let fullName = '';
+      if(colB && colC) fullName = colB.replace(/\+/g,' ').trim() + ' ' + colC.replace(/\+/g,' ').trim();
+      else if(colB) fullName = colB;
+      else if(colA && isNaN(colA)) fullName = colA;
+
+      if(fullName.length > 0 && fullName.length < 80){
+        names.push({ id:colA, name:fullName, dept:colD, position:colE, branch:colF });
       }
     });
+    const list = getStaff();
+    let added = 0;
+    names.forEach(function(n){
+      const nm = typeof n==='object'?n.name:n;
+      if(!list.some(function(s){ return staffName(s)===nm; })){ list.push(n); added++; }
+    });
+    saveStaff(list);
+    renderStaffList();
+    statusEl.textContent = '✅ นำเข้าจาก '+filename+' ได้ '+added+' ชื่อ (ทั้งหมด '+list.length+' คน)';
+  }catch(err){
+    statusEl.textContent = '❌ อ่านไฟล์ไม่ได้: '+err.message;
   }
-  var qSheet = ss.getSheetByName(SHEET_QUESTIONS);
-  if (!qSheet || qSheet.getLastRow() < 2) return { questions: [], config: config };
-  function cleanText(s){
-    return String(s||'').replace(/\+/g,' ').replace(/\s+/g,' ').trim();
+}
+
+function importStaffCSV(e){
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    const text = ev.target.result;
+    // รองรับทั้ง comma, newline, semicolon
+    const names = text.split(/[\n\r,;]+/).map(s=>s.trim()).filter(s=>s.length>0&&s.length<60);
+    const list = getStaff();
+    let added = 0;
+    names.forEach(n=>{ if(!list.some(s=>staffName(s)===n)){ list.push({id:'',name:n,dept:'',position:'',branch:''}); added++; } });
+    saveStaff(list);
+    renderStaffList();
+    document.getElementById('staff-status').textContent = `✅ นำเข้า ${added} ชื่อ (ทั้งหมด ${list.length} คน)`;
+  };
+  r.readAsText(f,'UTF-8');
+  e.target.value='';
+}
+
+async function pushStaffToSheet(){
+  const url = S.config.gasUrl || DEFAULT_WORKER_URL;
+  if(!url){ alert('กรุณาใส่ Worker URL ก่อน'); return; }
+  const el = document.getElementById('staff-status');
+  el.textContent='⏳ กำลังบันทึก...';
+  try{
+    const d = await gasGet(url, {action:'saveStaff', payload: getStaff()});
+    el.textContent = d.ok ? '✅ บันทึกสำเร็จ!' : '❌ '+d.error;
+  }catch(ex){ el.textContent='❌ '+ex.message; }
+}
+
+// ===== AUTOCOMPLETE สำหรับผู้เล่น =====
+function searchName(val){
+  selectedPlayerName = null;
+  document.getElementById('selected-name-display').style.display='none';
+  document.getElementById('p-name-input').style.display='block';
+  const list = document.getElementById('autocomplete-list');
+  const q = val.trim().toLowerCase();
+  if(!q){ list.style.display='none'; return; }
+  const staff = getStaff();
+  const matches = staff.filter(s=>{
+    const nm = staffName(s).toLowerCase();
+    const br = typeof s==='object'?(s.branch||'').toLowerCase():'';
+    return nm.includes(q)||br.includes(q);
+  }).slice(0,8);
+  if(!matches.length){
+    list.innerHTML='<div class="autocomplete-empty">ไม่พบชื่อ</div>';
+    list.style.display='block'; return;
   }
-  var questions = qSheet.getDataRange().getValues().slice(1).filter(function(r){ return r[1]; }).map(function(r){
-    return {
-      text: cleanText(r[1]),
-      options: [r[2],r[3],r[4],r[5],r[6],r[7]].filter(function(o){ return o !== '' && o !== null && o !== undefined; }).map(cleanText),
-      correct: Number(r[8])
-    };
-  });
-  return { questions: questions, config: config };
+  list.innerHTML = matches.map((s,idx)=>{
+    const name = staffName(s);
+    const meta = typeof s==='object'?[s.branch,s.position].filter(Boolean).join(' · '):'';
+    const isUsed = usedNames.includes(name.toLowerCase());
+    return `<div class="autocomplete-item" data-idx="${idx}" data-used="${isUsed}" onclick="selectNameByIdx(this)">
+      <div style="flex:1;pointer-events:none">
+        <div>${esc(name)}</div>
+        ${meta?`<div style="font-size:11px;color:#aaa">${esc(meta)}</div>`:''}
+      </div>
+      ${isUsed?'<span class="used" style="pointer-events:none">ทำไปแล้ว</span>':''}
+    </div>`;
+  }).join('');
+  // เก็บ matches ไว้ใน closure
+  list._matches = matches;
+  list.style.display='block';
 }
 
-// ============================================================
-//  GET RESULTS
-// ============================================================
+function selectNameByIdx(el){
+  const list = document.getElementById('autocomplete-list');
+  const idx = parseInt(el.dataset.idx);
+  const isUsed = el.dataset.used === 'true';
+  const matches = list._matches || [];
+  const s = matches[idx];
+  if(!s) return;
+  const name = staffName(s);
+  selectName(name, isUsed, s);
+}
 
-function getResults() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const rSheet = ss.getSheetByName(SHEET_RESPONSES);
-  if (!rSheet || rSheet.getLastRow() < 2) return { players: [] };
+function selectName(name, isUsed, staffObj){
+  document.getElementById('autocomplete-list').style.display='none';
+  if(isUsed){
+    document.getElementById('p-name-input').value='';
+    let warn = document.getElementById('name-warn');
+    if(!warn){ warn=document.createElement('div'); warn.id='name-warn'; warn.style.cssText='color:#ff4757;font-size:13px;font-weight:600;margin:6px 0'; document.getElementById('autocomplete-list').after(warn); }
+    warn.textContent='⚠️ "'+name+'" ทำแบบทดสอบไปแล้ว กรุณาติดต่อแอดมิน';
+    return;
+  }
+  // ใช้ staffObj ที่ส่งมาตรงๆ หรือค้นจาก list
+  selectedPlayerData = staffObj || getStaff().find(s=>staffName(s)===name) || {name};
+  selectedPlayerName = name;
+  document.getElementById('p-name-input').style.display='none';
+  document.getElementById('selected-name-text').textContent = name;
+  document.getElementById('selected-name-display').style.display='flex';
+  // clear warn
+  const warn = document.getElementById('name-warn');
+  if(warn) warn.textContent='';
+}
 
-  const rows = rSheet.getDataRange().getValues().slice(1);
-  const players = rows.map(r => {
-    // columns: 0=เวลา 1=ชื่อ 2=สาขา 3=แผนก 4=ตำแหน่ง 5=รหัส 6=ผล 7=คะแนน 8+=คำตอบ
-    const scoreStr = String(r[7]||r[3]||'0/0');
-    const parts = scoreStr.split('/');
-    const correctCount = parseInt(parts[0]) || 0;
-    const totalQ = parseInt(parts[1]) || 0;
-    const answers = [];
-    for (let i = 8; i < r.length; i++) {
-      if (r[i] === '✅' || r[i] === '❌') answers.push({ correct: r[i] === '✅' });
+function clearSelectedName(){
+  selectedPlayerName = null;
+  selectedPlayerData = null;
+  document.getElementById('p-name-input').style.display='block';
+  document.getElementById('p-name-input').value='';
+  document.getElementById('selected-name-display').style.display='none';
+  document.getElementById('autocomplete-list').style.display='none';
+}
+
+// ===== โหลด usedNames จาก Sheets =====
+async function loadUsedNames(){
+  const url = S.config.gasUrl || DEFAULT_WORKER_URL;
+  if(!url) return;
+  try{
+    const d = await gasGet(url, {action:'getResults'});
+    if(d.ok && d.players){
+      usedNames = d.players.map(p=>p.name.toLowerCase());
     }
-    // fallback ถ้า column เก่า (ไม่มี branch/dept)
-    if(!answers.length){
-      for (let i = 4; i < r.length; i++) {
-        if (r[i] === '✅' || r[i] === '❌') answers.push({ correct: r[i] === '✅' });
-      }
+  }catch(e){}
+}
+
+// โหลด staff จาก Sheets ด้วย (ถ้ามี)
+async function loadStaffFromSheet(){
+  const url = S.config.gasUrl || DEFAULT_WORKER_URL;
+  if(!url) return;
+  try{
+    const d = await gasGet(url, {action:'getStaff'});
+    if(d.ok && d.staff && d.staff.length){
+      saveStaff(d.staff);
     }
-    const realTotal = totalQ || answers.length || 1;
-    const realCorrect = totalQ ? correctCount : answers.filter(a=>a.correct).length;
-    return { name:r[1], branch:String(r[2]||''), dept:String(r[3]||''), position:String(r[4]||''), empId:String(r[5]||''), correctCount:realCorrect, totalQ:realTotal, answers, timestamp:Date.now() };
-  });
-
-  return { players };
+  }catch(e){}
 }
 
-// ============================================================
-//  STAFF — บันทึก/โหลดรายชื่อพนักงาน
-// ============================================================
+// ===== แก้ startPlay ให้ใช้ selectedPlayerName =====
+// override startPlay
+const _origStartPlay = startPlay;
+window.startPlay = async function(){
+  // ถ้าไม่ได้เลือกจาก autocomplete
+  if(!selectedPlayerName){
+    const typed = document.getElementById('p-name-input').value.trim();
+    if(!typed){ alert('กรุณาพิมพ์และเลือกชื่อของคุณก่อนนะ 😊'); return; }
+    // ถ้าพิมพ์แต่ไม่ได้กดเลือก ให้ถามยืนยัน
+    if(!confirm('ใช้ชื่อ "'+typed+'" ใช่ไหม?')){ return; }
+    selectedPlayerName = typed;
+  }
+  document.getElementById('p-name-input').value = selectedPlayerName;
+  await _origStartPlay();
+};
 
-function saveStaff(p) {
-  let staff;
-  try {
-    let raw = p.payload || '';
-    for(let i=0; i<4; i++){
-      try { const parsed = JSON.parse(raw); staff = parsed; break; } catch(e){}
-      try { raw = decodeURIComponent(raw); } catch(e){ break; }
-    }
-    if(!staff) staff = JSON.parse(raw);
-    if(!Array.isArray(staff)) return { ok:false, error:'payload ไม่ใช่ array' };
-  } catch(e) { return { ok:false, error:'parse ไม่ได้: '+e.message }; }
 
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  let sheet = ss.getSheetByName(SHEET_STAFF) || ss.insertSheet(SHEET_STAFF);
-  sheet.clearContents();
-  sheet.appendRow(['รหัส','ชื่อ-นามสกุล','แผนก','ตำแหน่ง','สาขา']);
-  styleHeader(sheet);
-  staff.forEach(function(s, i){
-    var name = typeof s==='object' ? (s.name||'') : String(s);
-    var id   = typeof s==='object' ? (s.id||'') : '';
-    var dept = typeof s==='object' ? (s.dept||'') : '';
-    var pos  = typeof s==='object' ? (s.position||'') : '';
-    var br   = typeof s==='object' ? (s.branch||'') : '';
-    sheet.appendRow([id, name, dept, pos, br]);
-  });
-  return { ok:true, count: staff.length };
+// ===== QR CODE =====
+function showQRModal(){
+  document.querySelectorAll('.qr-modal').forEach(function(e){e.remove();});
+  var base = window.location.origin + window.location.pathname.replace('index.html','');
+  var url  = base + '?play=1';
+  var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=' + encodeURIComponent(url);
+  var modal = document.createElement('div');
+  modal.className = 'qr-modal';
+  modal.onclick = function(e){ if(e.target===modal) closeQRModal(); };
+  modal.innerHTML = '<div class="qr-modal-box">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    + '<div style="font-size:16px;font-weight:700;color:#333">📱 QR Code แบบทดสอบ</div>'
+    + '<button onclick="closeQRModal()" style="background:none;border:none;font-size:18px;color:#aaa;cursor:pointer">✕</button>'
+    + '</div>'
+    + '<div style="font-size:12px;color:#aaa;margin-bottom:14px">' + esc(S.config.title||'แบบทดสอบ') + '</div>'
+    + '<img id="qr-img" src="' + qrSrc + '" width="220" height="220" style="border-radius:12px;border:2px solid #f0f0f0;display:block;margin:0 auto" alt="QR Code">'
+    + '<div class="qr-url" style="margin-top:12px">' + url + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:4px">'
+    + '<a href="' + qrSrc + '" download="QR-quiz.png" class="a-btn a-btn-primary" style="flex:1;justify-content:center;text-decoration:none">⬇️ บันทึกรูป</a>'
+    + '<button onclick="closeQRModal()" class="a-btn" style="flex:1;justify-content:center">ปิด</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(modal);
+}
+function closeQRModal(){
+  document.querySelectorAll('.qr-modal').forEach(function(e){e.remove();});
+}
+function downloadQR(){
+  var img = document.getElementById('qr-img');
+  if(img){ window.open(img.src,'_blank'); }
 }
 
-function getStaff() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName(SHEET_STAFF);
-  if(!sheet || sheet.getLastRow()<2) return { ok:true, staff:[] };
-  var lastRow = sheet.getLastRow();
-  if(lastRow < 2) return { ok:true, staff:[] };
-  var rows = sheet.getRange(2,1,lastRow-1,5).getValues();
-  var staff = rows.filter(function(r){ return String(r[1]||'').trim(); }).map(function(r){
-    return { id:String(r[0]||''), name:String(r[1]||''), dept:String(r[2]||''), position:String(r[3]||''), branch:String(r[4]||'') };
-  });
-  return { ok:true, staff:staff };
-}
-
-// ============================================================
-//  CHECK NAME — ตรวจว่าชื่อนี้เคยทำไปแล้วหรือยัง
-// ============================================================
-
-function checkName(name) {
-  if (!name) return { exists: false };
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const rSheet = ss.getSheetByName(SHEET_RESPONSES);
-  if (!rSheet || rSheet.getLastRow() < 2) return { exists: false };
-  const names = rSheet.getRange(2, 2, rSheet.getLastRow()-1, 1).getValues()
-    .map(function(r){ return String(r[0]).trim().toLowerCase(); });
-  const exists = names.indexOf(String(name).trim().toLowerCase()) > -1;
-  return { exists: exists };
-}
-
-// ============================================================
-//  HELPER
-// ============================================================
-
-function styleHeader(sheet) {
-  try {
-    sheet.getRange(1, 1, 1, sheet.getLastColumn())
-      .setFontWeight('bold').setBackground('#1a56db').setFontColor('white');
-  } catch(e){}
-}
+</script>
+</body>
+</html>
