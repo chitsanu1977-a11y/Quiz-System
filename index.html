@@ -959,11 +959,11 @@ function renderLB(players, filterBranch, filterDept){
     filterBar.innerHTML=`
       <select onchange="applyLBFilter()" id="lb-branch-filter" style="flex:1;margin:0;font-size:12px">
         <option value="">ทุกสาขา</option>
-        ${branches.map(b=>`<option value="${esc(b)}" ${filterBranch===b?'selected':''}>${esc(b)}</option>`).join('')}
+        ${branches.filter(b=>b&&!b.includes('GMT')).map(b=>`<option value="${esc(b)}" ${filterBranch===b?'selected':''}>${esc(b)}</option>`).join('')}
       </select>
       <select onchange="applyLBFilter()" id="lb-dept-filter" style="flex:1;margin:0;font-size:12px">
         <option value="">ทุกแผนก</option>
-        ${depts.map(d=>`<option value="${esc(d)}" ${filterDept===d?'selected':''}>${esc(d)}</option>`).join('')}
+        ${depts.filter(d=>d&&!d.includes('GMT')).map(d=>`<option value="${esc(d)}" ${filterDept===d?'selected':''}>${esc(d)}</option>`).join('')}
       </select>`;
   }
 
