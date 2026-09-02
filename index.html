@@ -1436,6 +1436,7 @@ function showQRModal(){
   document.querySelectorAll('.qr-modal').forEach(function(e){e.remove();});
   var base = window.location.origin + window.location.pathname.replace('index.html','');
   var url  = base + '?play=1';
+  var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=' + encodeURIComponent(url);
   var modal = document.createElement('div');
   modal.className = 'qr-modal';
   modal.onclick = function(e){ if(e.target===modal) closeQRModal(); };
@@ -1445,50 +1446,21 @@ function showQRModal(){
     + '<button onclick="closeQRModal()" style="background:none;border:none;font-size:18px;color:#aaa;cursor:pointer">✕</button>'
     + '</div>'
     + '<div style="font-size:12px;color:#aaa;margin-bottom:14px">' + esc(S.config.title||'แบบทดสอบ') + '</div>'
-    + '<canvas id="qr-canvas" width="220" height="220" style="border-radius:12px;border:2px solid #f0f0f0"></canvas>'
-    + '<div class="qr-url">' + url + '</div>'
-    + '<div style="display:flex;gap:8px">'
-    + '<button onclick="downloadQR()" class="a-btn a-btn-primary" style="flex:1;justify-content:center">⬇️ บันทึกรูป</button>'
+    + '<img id="qr-img" src="' + qrSrc + '" width="220" height="220" style="border-radius:12px;border:2px solid #f0f0f0;display:block;margin:0 auto" alt="QR Code">'
+    + '<div class="qr-url" style="margin-top:12px">' + url + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:4px">'
+    + '<a href="' + qrSrc + '" download="QR-quiz.png" class="a-btn a-btn-primary" style="flex:1;justify-content:center;text-decoration:none">⬇️ บันทึกรูป</a>'
     + '<button onclick="closeQRModal()" class="a-btn" style="flex:1;justify-content:center">ปิด</button>'
     + '</div>'
     + '</div>';
   document.body.appendChild(modal);
-  if(typeof QRCode !== 'undefined'){
-    renderQR(url);
-  } else {
-    var s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    s.onload=function(){ renderQR(url); };
-    s.onerror=function(){ loadQRFallback(url); };
-    document.head.appendChild(s);
-  }
-}
-function renderQR(url){
-  var canvas=document.getElementById('qr-canvas');
-  if(!canvas) return;
-  try{
-    new QRCode(canvas,{text:url,width:220,height:220,colorDark:'#1a1a18',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-  }catch(e){ loadQRFallback(url); }
-}
-function loadQRFallback(url){
-  var canvas=document.getElementById('qr-canvas');
-  if(!canvas) return;
-  var img=new Image();
-  img.crossOrigin='anonymous';
-  img.onload=function(){ canvas.getContext('2d').drawImage(img,0,0,220,220); };
-  img.src='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(url);
 }
 function closeQRModal(){
   document.querySelectorAll('.qr-modal').forEach(function(e){e.remove();});
 }
 function downloadQR(){
-  var canvas=document.getElementById('qr-canvas');
-  if(!canvas) return;
-  var title=(S.config.title||'quiz').replace(/[^a-zA-Z0-9ก-๙]/g,'-');
-  var a=document.createElement('a');
-  a.download='QR-'+title+'.png';
-  a.href=canvas.toDataURL('image/png');
-  a.click();
+  var img = document.getElementById('qr-img');
+  if(img){ window.open(img.src,'_blank'); }
 }
 
 </script>
