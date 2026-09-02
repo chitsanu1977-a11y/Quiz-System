@@ -657,7 +657,8 @@ function showQ(){
   p.answered=false;
   document.getElementById('p-qnum').textContent=`ข้อ ${p.currentQ+1}/${total}`;
   document.getElementById('p-prog').style.width=`${(p.currentQ/total)*100}%`;
-  if(q.imgData){ document.getElementById('p-q-img').src=q.imgData; document.getElementById('p-q-img').style.display='block'; }
+  const imgSrc = q.imgUrl || q.imgData || '';
+  if(imgSrc){ document.getElementById('p-q-img').src=imgSrc; document.getElementById('p-q-img').style.display='block'; }
   else document.getElementById('p-q-img').style.display='none';
   document.getElementById('p-q-text').textContent=q.text;
   document.getElementById('p-opts').innerHTML=q.options.map((o,i)=>`
